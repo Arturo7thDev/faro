@@ -4,16 +4,21 @@ import { streamSSE } from "hono/streaming";
 import { serve } from "@hono/node-server";
 import type { Opportunity } from "./arbitrage/types.js";
 import type { ExchangeName, Ticker } from "./exchanges/types.js";
+import type { WalletManager } from "./wallet/manager.js";
 
 export interface ServerState {
   tickers: Map<ExchangeName, Ticker>;
   recentOpportunities: Opportunity[];
+  wallet: WalletManager;
 }
 
 function snapshot(state: ServerState) {
   return {
     tickers: Array.from(state.tickers.values()),
     opportunities: state.recentOpportunities.slice(0, 20),
+    wallets: state.wallet.getAllBalances(),
+    executedTrades: state.wallet.getTrades(30),
+    stats: state.wallet.getStats(state.tickers),
     timestamp: Date.now(),
   };
 }
@@ -29,10 +34,7 @@ export function startServer(state: ServerState, port: number): void {
 
   app.get("/stream", (c) =>
     streamSSE(c, async (stream) => {
-      // Push inmediato al conectar
       await stream.writeSSE({ data: JSON.stringify(snapshot(state)) });
-
-      // Push periódico cada 200ms
       while (!stream.aborted) {
         await stream.sleep(200);
         await stream.writeSSE({ data: JSON.stringify(snapshot(state)) });
