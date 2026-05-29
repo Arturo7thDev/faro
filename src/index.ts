@@ -1,29 +1,17 @@
-import WebSocket from "ws";
+import { startBinance } from "./exchanges/binance.js";
+import { startCoinbase } from "./exchanges/coinbase.js";
+import { startKraken } from "./exchanges/kraken.js";
+import type { Ticker } from "./exchanges/types.js";
 
 console.log("Faro starting...");
 
-const ws = new WebSocket(
-  "wss://stream.binance.com:9443/ws/btcusdt@bookTicker",
-);
-
-ws.on("open", () => {
-  console.log("[Binance] Connected");
-});
-
-ws.on("message", (data) => {
-  const msg = JSON.parse(data.toString());
-  const bid = parseFloat(msg.b);
-  const ask = parseFloat(msg.a);
-  const spread = ask - bid;
+function logTicker(t: Ticker): void {
+  const spread = (t.ask - t.bid).toFixed(2);
   console.log(
-    `[Binance] BID: $${bid.toFixed(2)} | ASK: $${ask.toFixed(2)} | Spread: $${spread.toFixed(2)}`,
+    `[${t.exchange.padEnd(8)}] BID: $${t.bid.toFixed(2).padStart(10)} | ASK: $${t.ask.toFixed(2).padStart(10)} | Spread: $${spread.padStart(6)}`,
   );
-});
+}
 
-ws.on("error", (err) => {
-  console.error("[Binance] error:", err.message);
-});
-
-ws.on("close", () => {
-  console.log("[Binance] closed");
-});
+startBinance(logTicker);
+startCoinbase(logTicker);
+startKraken(logTicker);
