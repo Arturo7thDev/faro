@@ -11,6 +11,10 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "packageManager": "pnpm@11.0.5",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
   "dependencies": {
     "@hono/node-server": "^2.0.4",
     "decimal.js": "^10.6.0",
