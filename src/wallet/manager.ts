@@ -7,12 +7,14 @@ import {
   RETAIL_TAKER_PERCENT,
 } from "../arbitrage/fees.js";
 import type { Opportunity } from "../arbitrage/types.js";
-import type { ExchangeName, Pair, Ticker } from "../exchanges/types.js";
+import type { TriangularOpportunity } from "../arbitrage/triangular.js";
+import type { Asset, ExchangeName, Pair, Ticker } from "../exchanges/types.js";
 import { pairToAsset } from "../exchanges/types.js";
 import type {
   Balance,
   ExchangeExposure,
   ExecutedTrade,
+  ExecutedTriangularTrade,
   PortfolioStats,
   RiskMetrics,
   RoutePerformance,
@@ -31,7 +33,9 @@ const INITIAL_ETH = INITIAL_ETH_PER_EXCHANGE * EXCHANGES.length;
 export class WalletManager {
   private balances: Map<ExchangeName, Balance> = new Map();
   private trades: ExecutedTrade[] = [];
+  private triangularTrades: ExecutedTriangularTrade[] = [];
   private tradeIdCounter = 0;
+  private triangularIdCounter = 0;
 
   constructor() {
     for (const ex of EXCHANGES) {
@@ -41,6 +45,72 @@ export class WalletManager {
         eth: INITIAL_ETH_PER_EXCHANGE,
       });
     }
+  }
+
+  getTriangularTrades(limit = 50): ExecutedTriangularTrade[] {
+    return this.triangularTrades.slice(0, limit);
+  }
+
+  private adjustAsset(b: Balance, asset: Asset, delta: number): void {
+    if (asset === "USDT") b.usdt += delta;
+    else if (asset === "BTC") b.btc += delta;
+    else b.eth += delta;
+  }
+
+  private assetAmount(b: Balance, asset: Asset): number {
+    if (asset === "USDT") return b.usdt;
+    if (asset === "BTC") return b.btc;
+    return b.eth;
+  }
+
+  canExecuteTriangular(opp: TriangularOpportunity): boolean {
+    const w = this.balances.get(opp.exchange);
+    if (!w) return false;
+    // Need enough of each input asset at each step (after prior legs applied)
+    let usdt = w.usdt;
+    let btc = w.btc;
+    let eth = w.eth;
+    for (const leg of opp.legs) {
+      const have =
+        leg.amountInAsset === "USDT"
+          ? usdt
+          : leg.amountInAsset === "BTC"
+            ? btc
+            : eth;
+      if (have < leg.amountIn) return false;
+      // Apply this leg's simulated movement so the next leg sees updated balances
+      if (leg.amountInAsset === "USDT") usdt -= leg.amountIn;
+      else if (leg.amountInAsset === "BTC") btc -= leg.amountIn;
+      else eth -= leg.amountIn;
+      if (leg.amountOutAsset === "USDT") usdt += leg.amountOut;
+      else if (leg.amountOutAsset === "BTC") btc += leg.amountOut;
+      else eth += leg.amountOut;
+    }
+    return true;
+  }
+
+  executeTriangular(opp: TriangularOpportunity): ExecutedTriangularTrade {
+    const wallet = this.balances.get(opp.exchange)!;
+    let totalFeesUSD = 0;
+    for (const leg of opp.legs) {
+      this.adjustAsset(wallet, leg.amountInAsset, -leg.amountIn);
+      this.adjustAsset(wallet, leg.amountOutAsset, leg.amountOut);
+      totalFeesUSD += leg.feeUSDValue;
+    }
+    const trade: ExecutedTriangularTrade = {
+      id: `tri-${++this.triangularIdCounter}`,
+      timestamp: Date.now(),
+      exchange: opp.exchange,
+      direction: opp.direction,
+      startUSDT: opp.startUSDT,
+      finalUSDT: opp.finalUSDT,
+      netProfit: opp.netProfit,
+      netPercent: opp.netPercent,
+      totalFeesUSD,
+    };
+    this.triangularTrades.unshift(trade);
+    if (this.triangularTrades.length > 200) this.triangularTrades.pop();
+    return trade;
   }
 
   getBalance(exchange: ExchangeName): Balance {

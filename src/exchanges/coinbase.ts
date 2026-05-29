@@ -7,6 +7,7 @@ const MAX_RECONNECT_DELAY_MS = 30_000;
 const PRODUCT_TO_PAIR: Record<string, Pair> = {
   "BTC-USDT": "BTC/USDT",
   "ETH-USDT": "ETH/USDT",
+  "ETH-BTC": "ETH/BTC",
 };
 
 export function startCoinbase(onTicker: TickerHandler): void {
@@ -23,7 +24,7 @@ export function startCoinbase(onTicker: TickerHandler): void {
       ws.send(
         JSON.stringify({
           type: "subscribe",
-          product_ids: ["BTC-USDT", "ETH-USDT"],
+          product_ids: ["BTC-USDT", "ETH-USDT", "ETH-BTC"],
           channels: ["ticker_batch"],
         }),
       );

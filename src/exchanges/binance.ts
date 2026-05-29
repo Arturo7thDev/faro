@@ -1,14 +1,15 @@
 import WebSocket from "ws";
 import type { Pair, TickerHandler } from "./types.js";
 
-// Combined stream con ambos pares en una conexión
+// Combined stream con los 3 pares en una conexión (BTC/USDT + ETH/USDT + ETH/BTC para triangular)
 const URL =
-  "wss://stream.binance.us:9443/stream?streams=btcusdt@bookTicker/ethusdt@bookTicker";
+  "wss://stream.binance.us:9443/stream?streams=btcusdt@bookTicker/ethusdt@bookTicker/ethbtc@bookTicker";
 const MAX_RECONNECT_DELAY_MS = 30_000;
 
 const SYMBOL_TO_PAIR: Record<string, Pair> = {
   BTCUSDT: "BTC/USDT",
   ETHUSDT: "ETH/USDT",
+  ETHBTC: "ETH/BTC",
 };
 
 export function startBinance(onTicker: TickerHandler): void {
@@ -19,7 +20,7 @@ export function startBinance(onTicker: TickerHandler): void {
 
     ws.on("open", () => {
       reconnectAttempts = 0;
-      console.log("[binance ] connected (BTC + ETH)");
+      console.log("[binance ] connected (BTC + ETH + ETHBTC for triangular)");
     });
 
     ws.on("message", (data) => {

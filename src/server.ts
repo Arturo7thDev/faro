@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import { serve } from "@hono/node-server";
 import type { Opportunity } from "./arbitrage/types.js";
+import type { TriangularOpportunity } from "./arbitrage/triangular.js";
 import type { ExchangeName, Pair, Ticker } from "./exchanges/types.js";
 import { PAIRS } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
@@ -13,6 +14,7 @@ const STALE_THRESHOLD_MS = 60_000;
 export interface ServerState {
   tickersByPair: Map<Pair, Map<ExchangeName, Ticker>>;
   recentOpportunitiesByPair: Map<Pair, Opportunity[]>;
+  recentTriangular: TriangularOpportunity[];
   wallet: WalletManager;
   counters: ScanCounters;
   decisions: Decision[];
@@ -51,6 +53,8 @@ function snapshot(state: ServerState) {
     counters: state.counters,
     exchangeStats: state.getExchangeStats(),
     decisions: state.decisions.slice(0, 15),
+    triangularOpportunities: state.recentTriangular.slice(0, 12),
+    triangularTrades: state.wallet.getTriangularTrades(20),
     timestamp: now,
   };
 }

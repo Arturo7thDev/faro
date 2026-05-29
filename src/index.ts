@@ -11,6 +11,10 @@ import {
 } from "./exchanges/types.js";
 import { detectOpportunities } from "./arbitrage/detector.js";
 import type { Opportunity } from "./arbitrage/types.js";
+import {
+  detectAllTriangular,
+  type TriangularOpportunity,
+} from "./arbitrage/triangular.js";
 import { WalletManager } from "./wallet/manager.js";
 import type {
   Decision,
@@ -23,12 +27,15 @@ console.log("Faro starting...");
 
 const MAX_OPP_HISTORY_PER_PAIR = 100;
 const MAX_DECISIONS = 50;
+const MAX_TRIANGULAR_HISTORY = 50;
 const EXECUTION_COOLDOWN_MS = 3000;
+const TRIANGULAR_COOLDOWN_MS = 5000;
 const EXECUTION_STALE_THRESHOLD_MS = 60_000;
 const LATENCY_PING_INTERVAL_MS = 30_000;
 
 const wallet = new WalletManager();
 const lastExecutionByKey = new Map<string, number>();
+const lastTriangularByExchange = new Map<ExchangeName, number>();
 
 const counters: ScanCounters = {
   opportunitiesScanned: 0,
@@ -45,6 +52,8 @@ for (const p of PAIRS) tickersByPair.set(p, new Map());
 
 const recentOpportunitiesByPair = new Map<Pair, Opportunity[]>();
 for (const p of PAIRS) recentOpportunitiesByPair.set(p, []);
+
+const recentTriangular: TriangularOpportunity[] = [];
 
 const decisions: Decision[] = [];
 
@@ -63,6 +72,7 @@ let totalEvalCount = 0;
 const state: ServerState = {
   tickersByPair,
   recentOpportunitiesByPair,
+  recentTriangular,
   wallet,
   counters,
   decisions,
@@ -155,6 +165,46 @@ async function pingAllExchanges(): Promise<void> {
   }
 }
 
+function evaluateTriangular(now: number): void {
+  const triOpps = detectAllTriangular(tickersByPair);
+  if (triOpps.length === 0) return;
+
+  // Mantener buffer de mejores oportunidades recientes (rentables o no, para mostrar)
+  const top = triOpps[0];
+  recentTriangular.unshift(top);
+  if (recentTriangular.length > MAX_TRIANGULAR_HISTORY) recentTriangular.pop();
+
+  // Ejecutar la mejor opportunity rentable si:
+  // - no es stale (todos los tickers fresh)
+  // - pasa cooldown del exchange
+  // - hay capital
+  for (const opp of triOpps) {
+    if (!opp.profitable) break; // ordenado descendiente
+    const btcMap = tickersByPair.get("BTC/USDT")?.get(opp.exchange);
+    const ethMap = tickersByPair.get("ETH/USDT")?.get(opp.exchange);
+    const ethBtcMap = tickersByPair.get("ETH/BTC")?.get(opp.exchange);
+    if (
+      isTickerStale(btcMap, now) ||
+      isTickerStale(ethMap, now) ||
+      isTickerStale(ethBtcMap, now)
+    ) {
+      continue;
+    }
+    const lastTri = lastTriangularByExchange.get(opp.exchange) ?? 0;
+    if (now - lastTri < TRIANGULAR_COOLDOWN_MS) continue;
+    if (!wallet.canExecuteTriangular(opp)) continue;
+
+    const trade = wallet.executeTriangular(opp);
+    lastTriangularByExchange.set(opp.exchange, now);
+    console.log(
+      `[TRIANGULAR ${trade.exchange}] ${trade.direction} | ` +
+        `${trade.startUSDT.toFixed(0)} → ${trade.finalUSDT.toFixed(2)} | ` +
+        `NET +$${trade.netProfit.toFixed(4)}`,
+    );
+    return; // solo una ejecución triangular por tick
+  }
+}
+
 function onTicker(t: Ticker): void {
   const evalStart = performance.now();
 
@@ -162,65 +212,74 @@ function onTicker(t: Ticker): void {
   const pairTickers = tickersByPair.get(t.pair)!;
   pairTickers.set(t.exchange, t);
 
-  if (pairTickers.size < 2) {
-    totalEvalTimeMs += performance.now() - evalStart;
-    totalEvalCount++;
-    return;
-  }
+  // Linear arbitrage solo aplica a BTC/USDT y ETH/USDT (los pares fiat-anchor)
+  if (t.pair === "BTC/USDT" || t.pair === "ETH/USDT") {
+    if (pairTickers.size >= 2) {
+      const opps = detectOpportunities(t.pair, pairTickers);
+      counters.opportunitiesScanned += opps.length;
+      counters.profitableDetected += opps.filter((o) => o.profitable).length;
 
-  const opps = detectOpportunities(t.pair, pairTickers);
+      const recent = recentOpportunitiesByPair.get(t.pair)!;
+      if (opps.length > 0) {
+        recent.unshift(opps[0]);
+        if (recent.length > MAX_OPP_HISTORY_PER_PAIR) recent.pop();
+      }
 
-  counters.opportunitiesScanned += opps.length;
-  counters.profitableDetected += opps.filter((o) => o.profitable).length;
-
-  const recent = recentOpportunitiesByPair.get(t.pair)!;
-  if (opps.length > 0) {
-    recent.unshift(opps[0]);
-    if (recent.length > MAX_OPP_HISTORY_PER_PAIR) recent.pop();
-  }
-
-  const best: Opportunity | undefined = opps[0];
-  if (best && best.profitable) {
-    if (best.suspicious) {
-      counters.skippedSuspicious++;
-      recordDecision(best, "suspicious", "spread > 2% — likely stale or fat finger");
-    } else {
-      const now = Date.now();
-      const buyTicker = pairTickers.get(best.buyExchange);
-      const sellTicker = pairTickers.get(best.sellExchange);
-      if (isTickerStale(buyTicker, now) || isTickerStale(sellTicker, now)) {
-        counters.skippedStaleData++;
-        recordDecision(best, "stale", "ticker > 60s old");
-      } else {
-        const key = execKey(best.pair, best.buyExchange, best.sellExchange);
-        const lastExec = lastExecutionByKey.get(key) ?? 0;
-        if (now - lastExec < EXECUTION_COOLDOWN_MS) {
-          counters.skippedCooldown++;
-          counters.lostOpportunityUSD += best.netProfit;
-          recordDecision(best, "cooldown", "same route < 3s ago");
+      const best: Opportunity | undefined = opps[0];
+      if (best && best.profitable) {
+        if (best.suspicious) {
+          counters.skippedSuspicious++;
+          recordDecision(
+            best,
+            "suspicious",
+            "spread > 2% — likely stale or fat finger",
+          );
         } else {
-          const executableVolume = wallet.maxExecutableVolume(best);
-          if (executableVolume <= 0) {
-            counters.skippedInsufficientCapital++;
-            recordDecision(best, "insufficient_capital", "wallet exhausted");
+          const now = Date.now();
+          const buyTicker = pairTickers.get(best.buyExchange);
+          const sellTicker = pairTickers.get(best.sellExchange);
+          if (isTickerStale(buyTicker, now) || isTickerStale(sellTicker, now)) {
+            counters.skippedStaleData++;
+            recordDecision(best, "stale", "ticker > 60s old");
           } else {
-            const trade = wallet.executeTrade(best, executableVolume);
-            lastExecutionByKey.set(key, now);
-            recordDecision(
-              best,
-              "executed",
-              `vol ${trade.executedVolume.toFixed(6)} · net +$${trade.netProfit.toFixed(2)}`,
-            );
-            console.log(
-              `[EXECUTED ${trade.pair}] ${trade.buyExchange} → ${trade.sellExchange} | ` +
-                `vol ${trade.executedVolume.toFixed(6)} | ` +
-                `NET +$${trade.netProfit.toFixed(2)}`,
-            );
+            const key = execKey(best.pair, best.buyExchange, best.sellExchange);
+            const lastExec = lastExecutionByKey.get(key) ?? 0;
+            if (now - lastExec < EXECUTION_COOLDOWN_MS) {
+              counters.skippedCooldown++;
+              counters.lostOpportunityUSD += best.netProfit;
+              recordDecision(best, "cooldown", "same route < 3s ago");
+            } else {
+              const executableVolume = wallet.maxExecutableVolume(best);
+              if (executableVolume <= 0) {
+                counters.skippedInsufficientCapital++;
+                recordDecision(
+                  best,
+                  "insufficient_capital",
+                  "wallet exhausted",
+                );
+              } else {
+                const trade = wallet.executeTrade(best, executableVolume);
+                lastExecutionByKey.set(key, now);
+                recordDecision(
+                  best,
+                  "executed",
+                  `vol ${trade.executedVolume.toFixed(6)} · net +$${trade.netProfit.toFixed(2)}`,
+                );
+                console.log(
+                  `[LINEAR ${trade.pair}] ${trade.buyExchange} → ${trade.sellExchange} | ` +
+                    `vol ${trade.executedVolume.toFixed(6)} | ` +
+                    `NET +$${trade.netProfit.toFixed(2)}`,
+                );
+              }
+            }
           }
         }
       }
     }
   }
+
+  // Triangular: cualquier ticker puede haber cambiado el cycle. Evaluar.
+  evaluateTriangular(Date.now());
 
   totalEvalTimeMs += performance.now() - evalStart;
   totalEvalCount++;

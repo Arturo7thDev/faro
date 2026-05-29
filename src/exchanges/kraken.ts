@@ -7,6 +7,7 @@ const MAX_RECONNECT_DELAY_MS = 30_000;
 const SYMBOL_TO_PAIR: Record<string, Pair> = {
   "BTC/USDT": "BTC/USDT",
   "ETH/USDT": "ETH/USDT",
+  "ETH/BTC": "ETH/BTC",
 };
 
 export function startKraken(onTicker: TickerHandler): void {
@@ -23,7 +24,7 @@ export function startKraken(onTicker: TickerHandler): void {
           method: "subscribe",
           params: {
             channel: "ticker",
-            symbol: ["BTC/USDT", "ETH/USDT"],
+            symbol: ["BTC/USDT", "ETH/USDT", "ETH/BTC"],
           },
         }),
       );
