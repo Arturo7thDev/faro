@@ -17,7 +17,10 @@ import { startServer, type ServerState } from "./server.js";
 console.log("Faro starting...");
 
 const MAX_OPP_HISTORY_PER_PAIR = 100;
-const EXECUTION_COOLDOWN_MS = 5000;
+// 3s: balance entre evitar spam (que banearía cuentas reales) y capturar bursts
+// de oportunidades. El counter "skippedCooldown" + "lostOpportunityUSD" muestran
+// transparentemente el trade-off.
+const EXECUTION_COOLDOWN_MS = 3000;
 // 60s: tolerante a pares menos activos. Coinbase/Kraken BTC/USDT en mercados quietos
 // pueden tardar 30-60s entre updates (no hay trades nuevos, libros estables).
 // El circuit breaker (>2% spread = suspicious) sigue protegiendo de movimientos reales.
