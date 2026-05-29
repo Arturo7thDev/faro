@@ -1,8 +1,13 @@
 import WebSocket from "ws";
-import type { TickerHandler } from "./types.js";
+import type { Pair, TickerHandler } from "./types.js";
 
 const URL = "wss://ws-feed.exchange.coinbase.com";
 const MAX_RECONNECT_DELAY_MS = 30_000;
+
+const PRODUCT_TO_PAIR: Record<string, Pair> = {
+  "BTC-USDT": "BTC/USDT",
+  "ETH-USDT": "ETH/USDT",
+};
 
 export function startCoinbase(onTicker: TickerHandler): void {
   let reconnectAttempts = 0;
@@ -12,11 +17,11 @@ export function startCoinbase(onTicker: TickerHandler): void {
 
     ws.on("open", () => {
       reconnectAttempts = 0;
-      console.log("[coinbase] connected");
+      console.log("[coinbase] connected (BTC + ETH)");
       ws.send(
         JSON.stringify({
           type: "subscribe",
-          product_ids: ["BTC-USDT"],
+          product_ids: ["BTC-USDT", "ETH-USDT"],
           channels: ["ticker"],
         }),
       );
@@ -25,10 +30,12 @@ export function startCoinbase(onTicker: TickerHandler): void {
     ws.on("message", (data) => {
       const msg = JSON.parse(data.toString());
       if (msg.type !== "ticker") return;
+      const pair = PRODUCT_TO_PAIR[msg.product_id];
+      if (!pair) return;
 
       onTicker({
         exchange: "coinbase",
-        symbol: "BTC/USDT",
+        pair,
         bid: parseFloat(msg.best_bid),
         ask: parseFloat(msg.best_ask),
         bidQty: parseFloat(msg.best_bid_size ?? "0"),

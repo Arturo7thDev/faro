@@ -1,13 +1,16 @@
 import Decimal from "decimal.js";
-import type { ExchangeName, Ticker } from "../exchanges/types.js";
+import type { ExchangeName, Pair, Ticker } from "../exchanges/types.js";
 import { FEES, RETAIL_TAKER_PERCENT } from "./fees.js";
 import type { Opportunity } from "./types.js";
 
-// Circuit breaker: spread > 2% del precio = sospechoso (stale, fat finger).
-// El executor NUNCA ejecuta una opportunity marcada suspicious.
 const SUSPICIOUS_SPREAD_RATIO = 0.02;
 
+/**
+ * Detecta oportunidades para UN par específico, comparando los tickers
+ * de los exchanges que tienen ese par.
+ */
 export function detectOpportunities(
+  pair: Pair,
   tickers: Map<ExchangeName, Ticker>,
 ): Opportunity[] {
   const entries = Array.from(tickers.entries());
@@ -17,14 +20,18 @@ export function detectOpportunities(
     for (const [sellEx, sellT] of entries) {
       if (buyEx === sellEx) continue;
       if (buyT.ask >= sellT.bid) continue;
-      opportunities.push(buildOpportunity(buyT, sellT));
+      opportunities.push(buildOpportunity(pair, buyT, sellT));
     }
   }
 
   return opportunities.sort((a, b) => b.netProfit - a.netProfit);
 }
 
-function buildOpportunity(buyT: Ticker, sellT: Ticker): Opportunity {
+function buildOpportunity(
+  pair: Pair,
+  buyT: Ticker,
+  sellT: Ticker,
+): Opportunity {
   const buyPrice = new Decimal(buyT.ask);
   const sellPrice = new Decimal(sellT.bid);
   const volume = Decimal.min(
@@ -49,17 +56,17 @@ function buildOpportunity(buyT: Ticker, sellT: Ticker): Opportunity {
   const retailFees = retailBuyFee.plus(retailSellFee);
   const retailNetProfit = grossProfit.minus(retailFees);
 
-  // Circuit breaker: spread vs precio
   const spreadRatio = grossSpread.div(buyPrice).toNumber();
   const suspicious = spreadRatio > SUSPICIOUS_SPREAD_RATIO;
 
   return {
     timestamp: Date.now(),
+    pair,
     buyExchange: buyT.exchange,
     sellExchange: sellT.exchange,
     buyPrice: buyPrice.toNumber(),
     sellPrice: sellPrice.toNumber(),
-    maxVolumeBTC: volume.toNumber(),
+    maxVolume: volume.toNumber(),
     grossSpread: grossSpread.toNumber(),
     grossProfit: grossProfit.toNumber(),
     buyFee: buyFee.toNumber(),

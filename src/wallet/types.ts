@@ -1,19 +1,21 @@
-import type { ExchangeName } from "../exchanges/types.js";
+import type { ExchangeName, Pair } from "../exchanges/types.js";
 
 export interface Balance {
   usdt: number;
   btc: number;
+  eth: number;
 }
 
 export interface ExecutedTrade {
   id: string;
   timestamp: number;
+  pair: Pair;
   buyExchange: ExchangeName;
   sellExchange: ExchangeName;
   buyPrice: number;
   sellPrice: number;
-  requestedVolumeBTC: number;
-  executedVolumeBTC: number;
+  requestedVolume: number;
+  executedVolume: number;
   partial: boolean;
   buyFee: number;
   sellFee: number;
@@ -26,12 +28,10 @@ export interface ExecutedTrade {
 export interface ScanCounters {
   opportunitiesScanned: number;
   profitableDetected: number;
-  // Skip reasons (todas suman a 'profitable but not executed')
   skippedSuspicious: number;
   skippedStaleData: number;
   skippedCooldown: number;
   skippedInsufficientCapital: number;
-  // Sum de net profit de opps rentables bloqueadas por cooldown (lo que dejamos en la mesa)
   lostOpportunityUSD: number;
 }
 
@@ -53,16 +53,20 @@ export interface ExchangeStats {
 export interface PortfolioStats {
   initialCapitalUSDT: number;
   initialBTC: number;
+  initialETH: number;
   totalArbitrageProfit: number;
   totalTrades: number;
   totalFeesPaid: number;
   currentBTCPrice: number;
+  currentETHPrice: number;
   currentPortfolioValueUSDT: number;
   hypotheticalRetailLoss: number;
-  // Sprint F: strategy intelligence
-  successRate: number; // profitable / scanned
+  successRate: number;
   avgNetPerTrade: number;
   bestRoute: RoutePerformance | null;
   worstRoute: RoutePerformance | null;
-  avgEvalLatencyMs: number; // avg ms de procesamiento de cada ticker
+  avgEvalLatencyMs: number;
+  // Breakdown por par
+  profitByPair: Record<Pair, number>;
+  tradesByPair: Record<Pair, number>;
 }

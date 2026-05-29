@@ -1,7 +1,8 @@
 import Decimal from "decimal.js";
 import { FEES, RETAIL_TAKER_PERCENT } from "../arbitrage/fees.js";
 import type { Opportunity } from "../arbitrage/types.js";
-import type { ExchangeName, Ticker } from "../exchanges/types.js";
+import type { ExchangeName, Pair, Ticker } from "../exchanges/types.js";
+import { pairToAsset } from "../exchanges/types.js";
 import type {
   Balance,
   ExecutedTrade,
@@ -12,10 +13,12 @@ import type {
 
 const INITIAL_USDT_PER_EXCHANGE = 50_000;
 const INITIAL_BTC_PER_EXCHANGE = 0.5;
+const INITIAL_ETH_PER_EXCHANGE = 10;
 const EXCHANGES: ExchangeName[] = ["binance", "coinbase", "kraken"];
 
 const INITIAL_CAPITAL_USDT = INITIAL_USDT_PER_EXCHANGE * EXCHANGES.length;
 const INITIAL_BTC = INITIAL_BTC_PER_EXCHANGE * EXCHANGES.length;
+const INITIAL_ETH = INITIAL_ETH_PER_EXCHANGE * EXCHANGES.length;
 
 export class WalletManager {
   private balances: Map<ExchangeName, Balance> = new Map();
@@ -27,12 +30,13 @@ export class WalletManager {
       this.balances.set(ex, {
         usdt: INITIAL_USDT_PER_EXCHANGE,
         btc: INITIAL_BTC_PER_EXCHANGE,
+        eth: INITIAL_ETH_PER_EXCHANGE,
       });
     }
   }
 
   getBalance(exchange: ExchangeName): Balance {
-    return this.balances.get(exchange) ?? { usdt: 0, btc: 0 };
+    return this.balances.get(exchange) ?? { usdt: 0, btc: 0, eth: 0 };
   }
 
   getAllBalances(): Array<{ exchange: ExchangeName } & Balance> {
@@ -40,6 +44,7 @@ export class WalletManager {
       exchange,
       usdt: b.usdt,
       btc: b.btc,
+      eth: b.eth,
     }));
   }
 
@@ -47,20 +52,35 @@ export class WalletManager {
     return this.trades.slice(0, limit);
   }
 
+  private assetHeld(balance: Balance, asset: "BTC" | "ETH"): number {
+    return asset === "BTC" ? balance.btc : balance.eth;
+  }
+
+  private addAsset(
+    balance: Balance,
+    asset: "BTC" | "ETH",
+    delta: number,
+  ): void {
+    if (asset === "BTC") balance.btc += delta;
+    else balance.eth += delta;
+  }
+
   maxExecutableVolume(opp: Opportunity): number {
     const buyWallet = this.getBalance(opp.buyExchange);
     const sellWallet = this.getBalance(opp.sellExchange);
+    const asset = pairToAsset(opp.pair) as "BTC" | "ETH";
 
     const buyFeeMul = 1 + FEES[opp.buyExchange].takerPercent;
-    const maxBuyableBTC = buyWallet.usdt / (opp.buyPrice * buyFeeMul);
-    const maxSellableBTC = sellWallet.btc;
+    const maxBuyable = buyWallet.usdt / (opp.buyPrice * buyFeeMul);
+    const maxSellable = this.assetHeld(sellWallet, asset);
 
-    return Math.min(opp.maxVolumeBTC, maxBuyableBTC, maxSellableBTC);
+    return Math.min(opp.maxVolume, maxBuyable, maxSellable);
   }
 
   executeTrade(opp: Opportunity, executedVolume: number): ExecutedTrade {
     const buyWallet = this.balances.get(opp.buyExchange)!;
     const sellWallet = this.balances.get(opp.sellExchange)!;
+    const asset = pairToAsset(opp.pair) as "BTC" | "ETH";
 
     const volume = new Decimal(executedVolume);
     const buyPrice = new Decimal(opp.buyPrice);
@@ -72,8 +92,8 @@ export class WalletManager {
     const sellFee = usdtReceived.mul(FEES[opp.sellExchange].takerPercent);
 
     buyWallet.usdt -= usdtSpent.plus(buyFee).toNumber();
-    buyWallet.btc += volume.toNumber();
-    sellWallet.btc -= volume.toNumber();
+    this.addAsset(buyWallet, asset, volume.toNumber());
+    this.addAsset(sellWallet, asset, -volume.toNumber());
     sellWallet.usdt += usdtReceived.minus(sellFee).toNumber();
 
     const grossProfit = sellPrice.minus(buyPrice).mul(volume);
@@ -88,13 +108,14 @@ export class WalletManager {
     const trade: ExecutedTrade = {
       id: `trade-${++this.tradeIdCounter}`,
       timestamp: Date.now(),
+      pair: opp.pair,
       buyExchange: opp.buyExchange,
       sellExchange: opp.sellExchange,
       buyPrice: opp.buyPrice,
       sellPrice: opp.sellPrice,
-      requestedVolumeBTC: opp.maxVolumeBTC,
-      executedVolumeBTC: executedVolume,
-      partial: executedVolume < opp.maxVolumeBTC * 0.999,
+      requestedVolume: opp.maxVolume,
+      executedVolume,
+      partial: executedVolume < opp.maxVolume * 0.999,
       buyFee: buyFee.toNumber(),
       sellFee: sellFee.toNumber(),
       totalFees: totalFees.toNumber(),
@@ -110,7 +131,7 @@ export class WalletManager {
   }
 
   getStats(
-    tickers: Map<ExchangeName, Ticker>,
+    tickersByPair: Map<Pair, Map<ExchangeName, Ticker>>,
     counters: ScanCounters,
     avgEvalLatencyMs: number,
   ): PortfolioStats {
@@ -124,11 +145,19 @@ export class WalletManager {
       0,
     );
 
-    const mids = Array.from(tickers.values()).map((t) => (t.bid + t.ask) / 2);
-    const currentBTCPrice =
-      mids.length > 0
-        ? mids.sort((a, b) => a - b)[Math.floor(mids.length / 2)]
-        : 0;
+    const median = (arr: number[]) =>
+      arr.length === 0
+        ? 0
+        : arr.slice().sort((a, b) => a - b)[Math.floor(arr.length / 2)];
+
+    const btcTickers = tickersByPair.get("BTC/USDT");
+    const ethTickers = tickersByPair.get("ETH/USDT");
+    const currentBTCPrice = median(
+      Array.from(btcTickers?.values() ?? []).map((t) => (t.bid + t.ask) / 2),
+    );
+    const currentETHPrice = median(
+      Array.from(ethTickers?.values() ?? []).map((t) => (t.bid + t.ask) / 2),
+    );
 
     const totalUSDT = Array.from(this.balances.values()).reduce(
       (s, b) => s + b.usdt,
@@ -138,9 +167,13 @@ export class WalletManager {
       (s, b) => s + b.btc,
       0,
     );
-    const currentPortfolioValueUSDT = totalUSDT + totalBTC * currentBTCPrice;
+    const totalETH = Array.from(this.balances.values()).reduce(
+      (s, b) => s + b.eth,
+      0,
+    );
+    const currentPortfolioValueUSDT =
+      totalUSDT + totalBTC * currentBTCPrice + totalETH * currentETHPrice;
 
-    // Strategy metrics
     const successRate =
       counters.opportunitiesScanned > 0
         ? counters.profitableDetected / counters.opportunitiesScanned
@@ -149,12 +182,22 @@ export class WalletManager {
       this.trades.length > 0 ? totalArbitrageProfit / this.trades.length : 0;
 
     const routeMap = new Map<string, { count: number; totalProfit: number }>();
+    const pairMap: Record<Pair, number> = {
+      "BTC/USDT": 0,
+      "ETH/USDT": 0,
+    };
+    const pairCount: Record<Pair, number> = {
+      "BTC/USDT": 0,
+      "ETH/USDT": 0,
+    };
     for (const trade of this.trades) {
       const route = `${trade.buyExchange}→${trade.sellExchange}`;
       const r = routeMap.get(route) ?? { count: 0, totalProfit: 0 };
       r.count++;
       r.totalProfit += trade.netProfit;
       routeMap.set(route, r);
+      pairMap[trade.pair] += trade.netProfit;
+      pairCount[trade.pair]++;
     }
     const routesArr: RoutePerformance[] = Array.from(routeMap.entries()).map(
       ([route, r]) => ({
@@ -176,10 +219,12 @@ export class WalletManager {
     return {
       initialCapitalUSDT: INITIAL_CAPITAL_USDT,
       initialBTC: INITIAL_BTC,
+      initialETH: INITIAL_ETH,
       totalArbitrageProfit,
       totalTrades: this.trades.length,
       totalFeesPaid,
       currentBTCPrice,
+      currentETHPrice,
       currentPortfolioValueUSDT,
       hypotheticalRetailLoss,
       successRate,
@@ -187,6 +232,8 @@ export class WalletManager {
       bestRoute,
       worstRoute,
       avgEvalLatencyMs,
+      profitByPair: pairMap,
+      tradesByPair: pairCount,
     };
   }
 }

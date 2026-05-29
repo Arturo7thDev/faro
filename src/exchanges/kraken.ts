@@ -1,8 +1,13 @@
 import WebSocket from "ws";
-import type { TickerHandler } from "./types.js";
+import type { Pair, TickerHandler } from "./types.js";
 
 const URL = "wss://ws.kraken.com/v2";
 const MAX_RECONNECT_DELAY_MS = 30_000;
+
+const SYMBOL_TO_PAIR: Record<string, Pair> = {
+  "BTC/USDT": "BTC/USDT",
+  "ETH/USDT": "ETH/USDT",
+};
 
 export function startKraken(onTicker: TickerHandler): void {
   let reconnectAttempts = 0;
@@ -12,13 +17,13 @@ export function startKraken(onTicker: TickerHandler): void {
 
     ws.on("open", () => {
       reconnectAttempts = 0;
-      console.log("[kraken  ] connected");
+      console.log("[kraken  ] connected (BTC + ETH)");
       ws.send(
         JSON.stringify({
           method: "subscribe",
           params: {
             channel: "ticker",
-            symbol: ["BTC/USDT"],
+            symbol: ["BTC/USDT", "ETH/USDT"],
           },
         }),
       );
@@ -29,9 +34,11 @@ export function startKraken(onTicker: TickerHandler): void {
       if (msg.channel !== "ticker" || !Array.isArray(msg.data)) return;
 
       for (const t of msg.data) {
+        const pair = SYMBOL_TO_PAIR[t.symbol];
+        if (!pair) continue;
         onTicker({
           exchange: "kraken",
-          symbol: "BTC/USDT",
+          pair,
           bid: t.bid,
           ask: t.ask,
           bidQty: t.bid_qty,

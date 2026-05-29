@@ -1,12 +1,13 @@
-import type { ExchangeName } from "../exchanges/types.js";
+import type { ExchangeName, Pair } from "../exchanges/types.js";
 
 export interface Opportunity {
   timestamp: number;
+  pair: Pair;
   buyExchange: ExchangeName;
   sellExchange: ExchangeName;
   buyPrice: number;
   sellPrice: number;
-  maxVolumeBTC: number;
+  maxVolume: number;
   grossSpread: number;
   grossProfit: number;
   buyFee: number;
@@ -15,7 +16,6 @@ export interface Opportunity {
   netProfit: number;
   netSpread: number;
   profitable: boolean;
-  // Spread > 2% del precio = probable data stale / fat finger
   suspicious: boolean;
   retailFees: number;
   retailNetProfit: number;
