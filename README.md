@@ -107,20 +107,26 @@ Railway deploys in `us-west1`. `binance.com` blocks US-based IPs with HTTP 451 f
 |---|---|---|
 | **WebSocket reconnect** | Exponential backoff: 1s → 2s → 4s → ... → 30s | Exchanges drop connections periodically (rate limits, maintenance) |
 | **Circuit breaker** | Spread > 2% of price → flagged `SUSPICIOUS`, never executed | Most "huge spreads" are stale data or fat-finger entries |
-| **Stale data skip** | If any ticker is > 10s old → execution skipped, counted | Prevents trading against ghost prices when one exchange goes quiet |
-| **Per-pair-route cooldown** | 5s min between executions on the same (pair, buy, sell) route | Avoids spamming hundreds of micro-trades on the same opportunity |
+| **Stale data skip** | If any ticker is > 60s old → execution skipped, counted | Prevents trading against ghost prices when one exchange goes quiet (calibrated for natural Coinbase/Kraken USDT pair update cadence) |
+| **Per-pair-route cooldown** | 3s min between executions on the same (pair, buy, sell) route | Avoids spamming hundreds of micro-trades on the same opportunity |
 | **Capital constraints** | Trade volume capped by available USDT (buy) and asset (sell) | Models real liquidity; flags `partial` when book depth < intended size |
 | **Lost opportunity tracking** | Sums `netProfit` of opps blocked by cooldown | Transparent reporting of throughput trade-offs |
+| **Live decisions feed** | Logs every decision (executed / cooldown / stale / suspicious / no capital) with timestamp and reason | Demonstrates the bot is **thinking**, not just reacting |
+| **Risk metrics dashboard** | Max drawdown, wallet imbalance, capital deployed, per-exchange exposure | Visible risk management beyond just circuit breaker |
+| **Network latency monitor** | Measured RTT to each exchange via REST ping every 30s | Closes the "latencia de red" cost stack requirement with real numbers |
 
 Header counters expose this transparently: `scanned · profitable · executed`. The Decisions panel breaks down skip reasons.
 
 ## Strategy intelligence
 
-- **Success rate**: profitable opportunities / total scanned (typically 1-3%)
+- **Success rate**: profitable opportunities / total scanned (typically 0.1-3%, depending on market volatility)
+- **Decision accuracy**: % of profitable opportunities actually captured (vs skipped for safety / throttled)
 - **Avg net per trade**: cumulative profit divided by executed count
-- **Best/worst route**: most/least profitable buy→sell exchange pair (always Kraken→Binance.US in our experience — Kraken's lower liquidity yields wider spreads)
+- **Best/worst route**: most/least profitable buy→sell exchange pair (Kraken→Binance.US typically dominates — Kraken's lower BTC/USDT liquidity yields wider spreads)
 - **Eval latency**: avg ms to process each ticker through detection + decision (sub-1ms typical)
+- **Network latency**: measured RTT to each exchange, refreshed every 30s
 - **Per-pair P&L breakdown**: how much profit came from BTC vs ETH
+- **Live decisions feed**: last 15 decisions with timestamp, outcome, route, net, reason
 
 ## Stack
 
@@ -134,9 +140,23 @@ Header counters expose this transparently: `scanned · profitable · executed`. 
 
 ```
 GET /health         → { "status": "ok" }
-GET /state          → JSON snapshot (tickers per pair, opportunities, wallets, trades, stats, counters, exchangeStats)
-GET /stream         → SSE stream, pushes snapshot every 200ms
+GET /state          → JSON snapshot (full bot state — see schema below)
+GET /stream         → SSE stream, pushes snapshot every 200ms (browser-friendly)
 ```
+
+### `/state` payload schema
+
+| Field | Type | Description |
+|---|---|---|
+| `tickersByPair` | `Record<Pair, Ticker[]>` | Current bid/ask per exchange per pair with stale flag and age |
+| `opportunitiesByPair` | `Record<Pair, Opportunity[]>` | Last 20 detected opportunities per pair |
+| `wallets` | `WalletBalance[]` | USDT + BTC + ETH per exchange |
+| `executedTrades` | `ExecutedTrade[]` | Last 200 trades with full cost breakdown and retail comparison |
+| `stats` | `PortfolioStats` | Aggregated metrics including `risk` sub-object |
+| `counters` | `ScanCounters` | Scan totals + skip reasons + lost opportunity |
+| `exchangeStats` | `ExchangeStats[]` | Throughput (ticks/sec) and measured network RTT per exchange |
+| `decisions` | `Decision[]` | Last 15 bot decisions with outcome, route, net, reason |
+| `timestamp` | `number` | Server time when snapshot was built |
 
 Sample `/state` response shape:
 
