@@ -18,11 +18,13 @@ export function startCoinbase(onTicker: TickerHandler): void {
     ws.on("open", () => {
       reconnectAttempts = 0;
       console.log("[coinbase] connected (BTC + ETH)");
+      // ticker_batch: push cada 5s garantizado (vs ticker que solo pushea en cambios).
+      // Crítico para mantener data fresca en pares menos activos.
       ws.send(
         JSON.stringify({
           type: "subscribe",
           product_ids: ["BTC-USDT", "ETH-USDT"],
-          channels: ["ticker"],
+          channels: ["ticker_batch"],
         }),
       );
     });

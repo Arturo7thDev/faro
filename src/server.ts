@@ -8,7 +8,7 @@ import { PAIRS } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
 import type { ExchangeStats, ScanCounters } from "./wallet/types.js";
 
-const STALE_THRESHOLD_MS = 10_000;
+const STALE_THRESHOLD_MS = 30_000;
 
 export interface ServerState {
   tickersByPair: Map<Pair, Map<ExchangeName, Ticker>>;
