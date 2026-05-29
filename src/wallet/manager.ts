@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { FEES } from "../arbitrage/fees.js";
+import { FEES, RETAIL_TAKER_PERCENT } from "../arbitrage/fees.js";
 import type { Opportunity } from "../arbitrage/types.js";
 import type { ExchangeName, Ticker } from "../exchanges/types.js";
 import type { Balance, ExecutedTrade, PortfolioStats } from "./types.js";
@@ -41,12 +41,6 @@ export class WalletManager {
     return this.trades.slice(0, limit);
   }
 
-  /**
-   * Calcula el volumen máximo ejecutable dado:
-   * - el tamaño máximo de la oportunidad (top of book)
-   * - USDT disponible en exchange de compra (alcanza para comprar X BTC con fees)
-   * - BTC disponible en exchange de venta
-   */
   maxExecutableVolume(opp: Opportunity): number {
     const buyWallet = this.getBalance(opp.buyExchange);
     const sellWallet = this.getBalance(opp.sellExchange);
@@ -58,10 +52,6 @@ export class WalletManager {
     return Math.min(opp.maxVolumeBTC, maxBuyableBTC, maxSellableBTC);
   }
 
-  /**
-   * Ejecuta el trade mutando los balances y registrando el ExecutedTrade.
-   * Asume que executedVolume > 0 y dentro de los límites de wallet.
-   */
   executeTrade(opp: Opportunity, executedVolume: number): ExecutedTrade {
     const buyWallet = this.balances.get(opp.buyExchange)!;
     const sellWallet = this.balances.get(opp.sellExchange)!;
@@ -75,17 +65,20 @@ export class WalletManager {
     const usdtReceived = sellPrice.mul(volume);
     const sellFee = usdtReceived.mul(FEES[opp.sellExchange].takerPercent);
 
-    // Buy side: gastá USDT (precio + fee), recibí BTC
     buyWallet.usdt -= usdtSpent.plus(buyFee).toNumber();
     buyWallet.btc += volume.toNumber();
-
-    // Sell side: vendé BTC, recibí USDT (precio - fee)
     sellWallet.btc -= volume.toNumber();
     sellWallet.usdt += usdtReceived.minus(sellFee).toNumber();
 
     const grossProfit = sellPrice.minus(buyPrice).mul(volume);
     const totalFees = buyFee.plus(sellFee);
     const netProfit = grossProfit.minus(totalFees);
+
+    // Comparativa retail: mismo trade, fees 0.5% en ambos lados
+    const retailBuyFee = usdtSpent.mul(RETAIL_TAKER_PERCENT);
+    const retailSellFee = usdtReceived.mul(RETAIL_TAKER_PERCENT);
+    const retailTotalFees = retailBuyFee.plus(retailSellFee);
+    const retailNetProfit = grossProfit.minus(retailTotalFees);
 
     const trade: ExecutedTrade = {
       id: `trade-${++this.tradeIdCounter}`,
@@ -102,6 +95,7 @@ export class WalletManager {
       totalFees: totalFees.toNumber(),
       grossProfit: grossProfit.toNumber(),
       netProfit: netProfit.toNumber(),
+      retailNetProfit: retailNetProfit.toNumber(),
     };
 
     this.trades.unshift(trade);
@@ -116,11 +110,17 @@ export class WalletManager {
       0,
     );
     const totalFeesPaid = this.trades.reduce((sum, t) => sum + t.totalFees, 0);
+    // Lo que un retail hubiera perdido haciendo los mismos trades
+    const hypotheticalRetailLoss = this.trades.reduce(
+      (sum, t) => sum + t.retailNetProfit,
+      0,
+    );
 
-    // Precio actual = mediana de los mids de los 3 exchanges
     const mids = Array.from(tickers.values()).map((t) => (t.bid + t.ask) / 2);
     const currentBTCPrice =
-      mids.length > 0 ? mids.sort((a, b) => a - b)[Math.floor(mids.length / 2)] : 0;
+      mids.length > 0
+        ? mids.sort((a, b) => a - b)[Math.floor(mids.length / 2)]
+        : 0;
 
     const totalUSDT = Array.from(this.balances.values()).reduce(
       (s, b) => s + b.usdt,
@@ -140,6 +140,7 @@ export class WalletManager {
       totalFeesPaid,
       currentBTCPrice,
       currentPortfolioValueUSDT,
+      hypotheticalRetailLoss,
     };
   }
 }

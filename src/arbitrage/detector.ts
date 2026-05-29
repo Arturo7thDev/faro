@@ -1,15 +1,8 @@
 import Decimal from "decimal.js";
 import type { ExchangeName, Ticker } from "../exchanges/types.js";
-import { FEES } from "./fees.js";
+import { FEES, RETAIL_TAKER_PERCENT } from "./fees.js";
 import type { Opportunity } from "./types.js";
 
-/**
- * Evalúa TODOS los pares de exchanges y devuelve las oportunidades
- * (rentables o no), ordenadas por netProfit descendente.
- *
- * Una "oportunidad" existe cuando el ask de un exchange es menor al bid
- * de otro. La rentabilidad NETA descuenta los taker fees de ambos lados.
- */
 export function detectOpportunities(
   tickers: Map<ExchangeName, Ticker>,
 ): Opportunity[] {
@@ -19,9 +12,7 @@ export function detectOpportunities(
   for (const [buyEx, buyT] of entries) {
     for (const [sellEx, sellT] of entries) {
       if (buyEx === sellEx) continue;
-      // Skip si no hay spread bruto positivo
       if (buyT.ask >= sellT.bid) continue;
-
       opportunities.push(buildOpportunity(buyT, sellT));
     }
   }
@@ -32,8 +23,6 @@ export function detectOpportunities(
 function buildOpportunity(buyT: Ticker, sellT: Ticker): Opportunity {
   const buyPrice = new Decimal(buyT.ask);
   const sellPrice = new Decimal(sellT.bid);
-
-  // Volume cap = mínimo entre liquidez disponible en ambos topes de libro
   const volume = Decimal.min(
     new Decimal(buyT.askQty),
     new Decimal(sellT.bidQty),
@@ -51,6 +40,12 @@ function buildOpportunity(buyT: Ticker, sellT: Ticker): Opportunity {
     ? new Decimal(0)
     : netProfit.div(volume);
 
+  // Comparativa retail: mismo trade pero pagando 0.5% en cada lado
+  const retailBuyFee = buyPrice.mul(volume).mul(RETAIL_TAKER_PERCENT);
+  const retailSellFee = sellPrice.mul(volume).mul(RETAIL_TAKER_PERCENT);
+  const retailFees = retailBuyFee.plus(retailSellFee);
+  const retailNetProfit = grossProfit.minus(retailFees);
+
   return {
     timestamp: Date.now(),
     buyExchange: buyT.exchange,
@@ -66,5 +61,7 @@ function buildOpportunity(buyT: Ticker, sellT: Ticker): Opportunity {
     netProfit: netProfit.toNumber(),
     netSpread: netSpread.toNumber(),
     profitable: netProfit.gt(0),
+    retailFees: retailFees.toNumber(),
+    retailNetProfit: retailNetProfit.toNumber(),
   };
 }
