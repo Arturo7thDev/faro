@@ -51,6 +51,9 @@ export interface ExchangeStats {
   ticksPerSecond: number;
   avgIntervalMs: number;
   uptimeSeconds: number;
+  // Real network latency measured via REST ping cada 30s
+  networkLatencyMs: number;
+  networkLatencyAt: number; // timestamp último ping
 }
 
 export interface PortfolioStats {

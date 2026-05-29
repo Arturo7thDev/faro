@@ -2,6 +2,7 @@ import { performance } from "node:perf_hooks";
 import { startBinance } from "./exchanges/binance.js";
 import { startCoinbase } from "./exchanges/coinbase.js";
 import { startKraken } from "./exchanges/kraken.js";
+import { measureLatency } from "./exchanges/latency.js";
 import {
   PAIRS,
   type ExchangeName,
@@ -17,14 +18,9 @@ import { startServer, type ServerState } from "./server.js";
 console.log("Faro starting...");
 
 const MAX_OPP_HISTORY_PER_PAIR = 100;
-// 3s: balance entre evitar spam (que banearía cuentas reales) y capturar bursts
-// de oportunidades. El counter "skippedCooldown" + "lostOpportunityUSD" muestran
-// transparentemente el trade-off.
 const EXECUTION_COOLDOWN_MS = 3000;
-// 60s: tolerante a pares menos activos. Coinbase/Kraken BTC/USDT en mercados quietos
-// pueden tardar 30-60s entre updates (no hay trades nuevos, libros estables).
-// El circuit breaker (>2% spread = suspicious) sigue protegiendo de movimientos reales.
 const EXECUTION_STALE_THRESHOLD_MS = 60_000;
+const LATENCY_PING_INTERVAL_MS = 30_000;
 
 const wallet = new WalletManager();
 const lastExecutionByKey = new Map<string, number>();
@@ -39,11 +35,9 @@ const counters: ScanCounters = {
   lostOpportunityUSD: 0,
 };
 
-// Tickers organizados por par
 const tickersByPair = new Map<Pair, Map<ExchangeName, Ticker>>();
 for (const p of PAIRS) tickersByPair.set(p, new Map());
 
-// Opportunities recientes por par
 const recentOpportunitiesByPair = new Map<Pair, Opportunity[]>();
 for (const p of PAIRS) recentOpportunitiesByPair.set(p, []);
 
@@ -51,6 +45,8 @@ interface RawExchangeStats {
   ticksReceived: number;
   firstTickAt: number;
   lastTickAt: number;
+  networkLatencyMs: number;
+  networkLatencyAt: number;
 }
 const exchangeStats = new Map<ExchangeName, RawExchangeStats>();
 
@@ -87,6 +83,8 @@ function buildExchangeStats(): ExchangeStats[] {
       avgIntervalMs:
         s.ticksReceived > 1 ? (now - s.firstTickAt) / s.ticksReceived : 0,
       uptimeSeconds: elapsedSec,
+      networkLatencyMs: s.networkLatencyMs,
+      networkLatencyAt: s.networkLatencyAt,
     };
   });
 }
@@ -99,10 +97,37 @@ function trackExchangeTick(exchange: ExchangeName): void {
       ticksReceived: 1,
       firstTickAt: now,
       lastTickAt: now,
+      networkLatencyMs: 0,
+      networkLatencyAt: 0,
     });
   } else {
     s.ticksReceived++;
     s.lastTickAt = now;
+  }
+}
+
+async function pingAllExchanges(): Promise<void> {
+  const exchanges: ExchangeName[] = ["binance", "coinbase", "kraken"];
+  const results = await Promise.all(
+    exchanges.map(async (ex) => ({ ex, ms: await measureLatency(ex) })),
+  );
+  const now = Date.now();
+  for (const { ex, ms } of results) {
+    if (ms === null) continue;
+    let s = exchangeStats.get(ex);
+    if (!s) {
+      s = {
+        ticksReceived: 0,
+        firstTickAt: now,
+        lastTickAt: now,
+        networkLatencyMs: ms,
+        networkLatencyAt: now,
+      };
+      exchangeStats.set(ex, s);
+    } else {
+      s.networkLatencyMs = ms;
+      s.networkLatencyAt = now;
+    }
   }
 }
 
@@ -171,6 +196,10 @@ function onTicker(t: Ticker): void {
 startBinance(onTicker);
 startCoinbase(onTicker);
 startKraken(onTicker);
+
+// Latency measurement: ping inicial + cada 30s
+pingAllExchanges();
+setInterval(pingAllExchanges, LATENCY_PING_INTERVAL_MS);
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 startServer(state, PORT);
