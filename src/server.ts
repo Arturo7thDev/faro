@@ -5,11 +5,13 @@ import { serve } from "@hono/node-server";
 import type { Opportunity } from "./arbitrage/types.js";
 import type { ExchangeName, Ticker } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
+import type { ScanCounters } from "./wallet/types.js";
 
 export interface ServerState {
   tickers: Map<ExchangeName, Ticker>;
   recentOpportunities: Opportunity[];
   wallet: WalletManager;
+  counters: ScanCounters;
 }
 
 function snapshot(state: ServerState) {
@@ -19,6 +21,7 @@ function snapshot(state: ServerState) {
     wallets: state.wallet.getAllBalances(),
     executedTrades: state.wallet.getTrades(30),
     stats: state.wallet.getStats(state.tickers),
+    counters: state.counters,
     timestamp: Date.now(),
   };
 }

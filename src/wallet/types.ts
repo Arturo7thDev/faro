@@ -20,8 +20,12 @@ export interface ExecutedTrade {
   totalFees: number;
   grossProfit: number;
   netProfit: number;
-  // Comparativa: este mismo trade a fees retail (0.5%) hubiera dado este net
   retailNetProfit: number;
+}
+
+export interface ScanCounters {
+  opportunitiesScanned: number;
+  profitableDetected: number;
 }
 
 export interface PortfolioStats {
@@ -32,6 +36,5 @@ export interface PortfolioStats {
   totalFeesPaid: number;
   currentBTCPrice: number;
   currentPortfolioValueUSDT: number;
-  // Lo que un retail hubiera perdido ejecutando los MISMOS trades
   hypotheticalRetailLoss: number;
 }

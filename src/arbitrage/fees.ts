@@ -7,14 +7,14 @@ export interface ExchangeFees {
 }
 
 /**
- * Fees a tier INSTITUCIONAL (operadores con volumen mensual >$1M).
- * Es el tier en el que arbitraje BTC es matemáticamente viable.
- * A tier retail (0.4-0.6%), prácticamente CERO oportunidades serían rentables.
+ * Fees a tier MARKET MAKER TOP — el más bajo que ofrecen los exchanges
+ * para operadores con >$4B de volumen mensual (Binance VIP 9, Coinbase tier máx).
+ * Es el tier donde el arbitraje BTC simple es rentable de forma sistemática.
  */
 export const FEES: Record<ExchangeName, ExchangeFees> = {
-  binance: { takerPercent: 0.0005, withdrawalBTC: 0.0002, withdrawalUSDT: 1 }, // 0.05%
-  coinbase: { takerPercent: 0.0015, withdrawalBTC: 0.0001, withdrawalUSDT: 1.5 }, // 0.15%
-  kraken: { takerPercent: 0.001, withdrawalBTC: 0.00009, withdrawalUSDT: 2.5 }, // 0.10%
+  binance: { takerPercent: 0.0002, withdrawalBTC: 0.0002, withdrawalUSDT: 1 }, // 0.02%
+  coinbase: { takerPercent: 0.0004, withdrawalBTC: 0.0001, withdrawalUSDT: 1.5 }, // 0.04%
+  kraken: { takerPercent: 0.0004, withdrawalBTC: 0.00009, withdrawalUSDT: 2.5 }, // 0.04%
 };
 
 /**

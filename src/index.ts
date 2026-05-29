@@ -5,21 +5,27 @@ import type { ExchangeName, Ticker } from "./exchanges/types.js";
 import { detectOpportunities } from "./arbitrage/detector.js";
 import type { Opportunity } from "./arbitrage/types.js";
 import { WalletManager } from "./wallet/manager.js";
+import type { ScanCounters } from "./wallet/types.js";
 import { startServer, type ServerState } from "./server.js";
 
 console.log("Faro starting...");
 
 const MAX_OPP_HISTORY = 100;
-// 5 seg de cooldown entre ejecuciones del mismo par para evitar spam
 const EXECUTION_COOLDOWN_MS = 5000;
 
 const wallet = new WalletManager();
 const lastExecutionByPair = new Map<string, number>();
 
+const counters: ScanCounters = {
+  opportunitiesScanned: 0,
+  profitableDetected: 0,
+};
+
 const state: ServerState = {
   tickers: new Map<ExchangeName, Ticker>(),
   recentOpportunities: [],
   wallet,
+  counters,
 };
 
 function pairKey(buy: ExchangeName, sell: ExchangeName): string {
@@ -32,7 +38,10 @@ function onTicker(t: Ticker): void {
 
   const opps = detectOpportunities(state.tickers);
 
-  // Guardar la mejor opportunity del momento (para el log)
+  // Contadores acumulativos
+  counters.opportunitiesScanned += opps.length;
+  counters.profitableDetected += opps.filter((o) => o.profitable).length;
+
   if (opps.length > 0) {
     state.recentOpportunities.unshift(opps[0]);
     if (state.recentOpportunities.length > MAX_OPP_HISTORY) {
@@ -40,7 +49,6 @@ function onTicker(t: Ticker): void {
     }
   }
 
-  // EJECUCIÓN: la mejor opportunity rentable si pasa cooldown + capital
   const best: Opportunity | undefined = opps[0];
   if (!best || !best.profitable) return;
 
