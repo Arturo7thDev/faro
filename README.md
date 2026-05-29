@@ -1,6 +1,6 @@
 # Faro · Honest Crypto Arbitrage
 
-> Real-time arbitrage detection across 3 exchanges (Binance.US, Coinbase, Kraken) and 2 pairs (BTC/USDT + ETH/USDT) with simulated execution, wallet tracking, and full bot intelligence layer. The bot that executes **only** what survives fees + slippage + stale data + circuit breakers — and shows you what retail would have lost on the same trades.
+> Real-time **linear AND triangular** arbitrage detection across 3 exchanges (Binance.US, Coinbase, Kraken) and 3 pairs (BTC/USDT + ETH/USDT + ETH/BTC) with simulated execution, multi-asset wallet tracking, and a full bot intelligence layer. The bot that executes **only** what survives fees + slippage + stale data + circuit breakers — and shows you what retail would have lost on the same trades.
 
 🚀 **[Live Demo](https://practice-app-7th.vercel.app)** · 📡 **[Backend API](https://faro-production-9be0.up.railway.app/state)** · 🖥️ **[Frontend repo](https://github.com/Arturo7thDev/practice-app)**
 
@@ -119,6 +119,8 @@ Header counters expose this transparently: `scanned · profitable · executed`. 
 
 ## Strategy intelligence
 
+- **Linear cross-exchange arbitrage** (BTC/USDT + ETH/USDT) — buy cheap on A, sell high on B
+- **Triangular intra-exchange arbitrage** (USDT → ETH → BTC → USDT and the reverse cycle) — exploit ETH/BTC pricing inefficiencies within a single exchange
 - **Success rate**: profitable opportunities / total scanned (typically 0.1-3%, depending on market volatility)
 - **Decision accuracy**: % of profitable opportunities actually captured (vs skipped for safety / throttled)
 - **Avg net per trade**: cumulative profit divided by executed count
@@ -127,6 +129,17 @@ Header counters expose this transparently: `scanned · profitable · executed`. 
 - **Network latency**: measured RTT to each exchange, refreshed every 30s
 - **Per-pair P&L breakdown**: how much profit came from BTC vs ETH
 - **Live decisions feed**: last 15 decisions with timestamp, outcome, route, net, reason
+
+### Triangular detection — how it works
+
+For every exchange that has all three pairs (BTC/USDT, ETH/USDT, ETH/BTC), Faro evaluates both 3-leg cycles on each ticker update:
+
+| Path | Legs |
+|---|---|
+| Path 1 | `USDT → ETH` (buy at ETH/USDT ask) → `ETH → BTC` (sell at ETH/BTC bid) → `BTC → USDT` (sell at BTC/USDT bid) |
+| Path 2 | `USDT → BTC` (buy at BTC/USDT ask) → `BTC → ETH` (buy at ETH/BTC ask) → `ETH → USDT` (sell at ETH/USDT bid) |
+
+Each leg discounts the exchange's taker fee. A standardized `$1,000` notional starts each cycle so opportunities are directly comparable. When `finalUSDT > 1000`, the cycle is profitable — Faro executes a 3-leg trade through the wallet, atomically rebalancing USDT/BTC/ETH. Triangular cycles at market-maker tier are mostly arbitraged away within milliseconds; Faro waits for the occasional dislocation.
 
 ## Stack
 
