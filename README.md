@@ -2,7 +2,7 @@
 
 > Real-time **linear AND triangular** arbitrage detection across 3 exchanges (Binance.US, Coinbase, Kraken) and 3 pairs (BTC/USDT + ETH/USDT + ETH/BTC) with simulated execution, multi-asset wallet tracking, and a full bot intelligence layer. The bot that executes **only** what survives fees + slippage + stale data + circuit breakers — and shows you what retail would have lost on the same trades.
 
-🚀 **[Live Demo](https://practice-app-7th.vercel.app)** · 📡 **[Backend API](https://faro-production-9be0.up.railway.app/state)** · 🖥️ **[Frontend repo](https://github.com/Arturo7thDev/practice-app)**
+🚀 **[Live Demo](https://practice-app-ivory.vercel.app)** · 📡 **[Backend API](https://faro-production-9be0.up.railway.app/state)** · 🖥️ **[Frontend repo](https://github.com/Arturo7thDev/practice-app)**
 
 ---
 
