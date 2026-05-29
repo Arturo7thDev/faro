@@ -26,8 +26,28 @@ export interface ExecutedTrade {
 export interface ScanCounters {
   opportunitiesScanned: number;
   profitableDetected: number;
-  // Oportunidades rentables skipeadas por usar al menos un ticker stale
+  // Skip reasons (todas suman a 'profitable but not executed')
+  skippedSuspicious: number;
   skippedStaleData: number;
+  skippedCooldown: number;
+  skippedInsufficientCapital: number;
+  // Sum de net profit de opps rentables bloqueadas por cooldown (lo que dejamos en la mesa)
+  lostOpportunityUSD: number;
+}
+
+export interface RoutePerformance {
+  route: string;
+  count: number;
+  totalProfit: number;
+  avgProfit: number;
+}
+
+export interface ExchangeStats {
+  exchange: ExchangeName;
+  ticksReceived: number;
+  ticksPerSecond: number;
+  avgIntervalMs: number;
+  uptimeSeconds: number;
 }
 
 export interface PortfolioStats {
@@ -39,4 +59,10 @@ export interface PortfolioStats {
   currentBTCPrice: number;
   currentPortfolioValueUSDT: number;
   hypotheticalRetailLoss: number;
+  // Sprint F: strategy intelligence
+  successRate: number; // profitable / scanned
+  avgNetPerTrade: number;
+  bestRoute: RoutePerformance | null;
+  worstRoute: RoutePerformance | null;
+  avgEvalLatencyMs: number; // avg ms de procesamiento de cada ticker
 }

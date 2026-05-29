@@ -2,7 +2,13 @@ import Decimal from "decimal.js";
 import { FEES, RETAIL_TAKER_PERCENT } from "../arbitrage/fees.js";
 import type { Opportunity } from "../arbitrage/types.js";
 import type { ExchangeName, Ticker } from "../exchanges/types.js";
-import type { Balance, ExecutedTrade, PortfolioStats } from "./types.js";
+import type {
+  Balance,
+  ExecutedTrade,
+  PortfolioStats,
+  RoutePerformance,
+  ScanCounters,
+} from "./types.js";
 
 const INITIAL_USDT_PER_EXCHANGE = 50_000;
 const INITIAL_BTC_PER_EXCHANGE = 0.5;
@@ -74,7 +80,6 @@ export class WalletManager {
     const totalFees = buyFee.plus(sellFee);
     const netProfit = grossProfit.minus(totalFees);
 
-    // Comparativa retail: mismo trade, fees 0.5% en ambos lados
     const retailBuyFee = usdtSpent.mul(RETAIL_TAKER_PERCENT);
     const retailSellFee = usdtReceived.mul(RETAIL_TAKER_PERCENT);
     const retailTotalFees = retailBuyFee.plus(retailSellFee);
@@ -99,19 +104,21 @@ export class WalletManager {
     };
 
     this.trades.unshift(trade);
-    // Mantenemos historial amplio para el chart de equity curve
     if (this.trades.length > 500) this.trades.pop();
 
     return trade;
   }
 
-  getStats(tickers: Map<ExchangeName, Ticker>): PortfolioStats {
+  getStats(
+    tickers: Map<ExchangeName, Ticker>,
+    counters: ScanCounters,
+    avgEvalLatencyMs: number,
+  ): PortfolioStats {
     const totalArbitrageProfit = this.trades.reduce(
       (sum, t) => sum + t.netProfit,
       0,
     );
     const totalFeesPaid = this.trades.reduce((sum, t) => sum + t.totalFees, 0);
-    // Lo que un retail hubiera perdido haciendo los mismos trades
     const hypotheticalRetailLoss = this.trades.reduce(
       (sum, t) => sum + t.retailNetProfit,
       0,
@@ -133,6 +140,39 @@ export class WalletManager {
     );
     const currentPortfolioValueUSDT = totalUSDT + totalBTC * currentBTCPrice;
 
+    // Strategy metrics
+    const successRate =
+      counters.opportunitiesScanned > 0
+        ? counters.profitableDetected / counters.opportunitiesScanned
+        : 0;
+    const avgNetPerTrade =
+      this.trades.length > 0 ? totalArbitrageProfit / this.trades.length : 0;
+
+    const routeMap = new Map<string, { count: number; totalProfit: number }>();
+    for (const trade of this.trades) {
+      const route = `${trade.buyExchange}→${trade.sellExchange}`;
+      const r = routeMap.get(route) ?? { count: 0, totalProfit: 0 };
+      r.count++;
+      r.totalProfit += trade.netProfit;
+      routeMap.set(route, r);
+    }
+    const routesArr: RoutePerformance[] = Array.from(routeMap.entries()).map(
+      ([route, r]) => ({
+        route,
+        count: r.count,
+        totalProfit: r.totalProfit,
+        avgProfit: r.totalProfit / r.count,
+      }),
+    );
+    const bestRoute =
+      routesArr.length > 0
+        ? routesArr.sort((a, b) => b.totalProfit - a.totalProfit)[0]
+        : null;
+    const worstRoute =
+      routesArr.length > 0
+        ? routesArr.sort((a, b) => a.totalProfit - b.totalProfit)[0]
+        : null;
+
     return {
       initialCapitalUSDT: INITIAL_CAPITAL_USDT,
       initialBTC: INITIAL_BTC,
@@ -142,6 +182,11 @@ export class WalletManager {
       currentBTCPrice,
       currentPortfolioValueUSDT,
       hypotheticalRetailLoss,
+      successRate,
+      avgNetPerTrade,
+      bestRoute,
+      worstRoute,
+      avgEvalLatencyMs,
     };
   }
 }

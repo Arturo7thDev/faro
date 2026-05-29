@@ -5,9 +5,8 @@ import { serve } from "@hono/node-server";
 import type { Opportunity } from "./arbitrage/types.js";
 import type { ExchangeName, Ticker } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
-import type { ScanCounters } from "./wallet/types.js";
+import type { ExchangeStats, ScanCounters } from "./wallet/types.js";
 
-// Si un exchange no manda ticks en este tiempo, lo marcamos como stale.
 const STALE_THRESHOLD_MS = 10_000;
 
 export interface ServerState {
@@ -15,6 +14,8 @@ export interface ServerState {
   recentOpportunities: Opportunity[];
   wallet: WalletManager;
   counters: ScanCounters;
+  getExchangeStats: () => ExchangeStats[];
+  getAvgEvalLatencyMs: () => number;
 }
 
 function snapshot(state: ServerState) {
@@ -28,8 +29,13 @@ function snapshot(state: ServerState) {
     opportunities: state.recentOpportunities.slice(0, 20),
     wallets: state.wallet.getAllBalances(),
     executedTrades: state.wallet.getTrades(200),
-    stats: state.wallet.getStats(state.tickers),
+    stats: state.wallet.getStats(
+      state.tickers,
+      state.counters,
+      state.getAvgEvalLatencyMs(),
+    ),
     counters: state.counters,
+    exchangeStats: state.getExchangeStats(),
     timestamp: now,
   };
 }
