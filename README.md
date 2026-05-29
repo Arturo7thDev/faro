@@ -27,29 +27,23 @@ That dramatic gap between Faro's profit and retail's loss on the *same execution
 
 ## Architecture
 
-```
-┌────────────────────────────────┐         ┌──────────────────────────┐
-│  3 Exchange WebSockets         │         │   Frontend (Vercel)      │
-│  • Binance.US (combined        │         │   Next.js 16 + Tailwind  │
-│    stream BTC+ETH)             │         │   shadcn/ui · recharts   │
-│  • Coinbase Advanced           │         └────────────┬─────────────┘
-│  • Kraken v2                   │                      │ SSE (EventSource)
-└──────────┬─────────────────────┘                      ▲
-           │ wss://                                      │
-           ▼                                             │
-┌────────────────────────────────────────────────────────────────────┐
-│              Backend Bot (Railway · this repo)                     │
-│  • 3 WS clients with exponential backoff reconnect                 │
-│  • Tickers tracked per (pair, exchange) — Map<Pair, Map<Ex, Tk>>   │
-│  • Detector evaluates 6 directional pairs per pair, each tick      │
-│  • WalletManager: multi-asset balances (USDT + BTC + ETH × 3 ex)   │
-│  • Execution engine: cooldown 5s/pair, stale skip, circuit breaker │
-│  • Strategy intelligence: success rate, best route, latency, etc.  │
-│  • REST + SSE API via Hono                                         │
-└────────────────────────────────────────────────────────────────────┘
-```
+![Faro architecture diagram](docs/architecture.svg)
 
 This repo is the **backend bot**. The dashboard frontend lives in [`practice-app`](https://github.com/Arturo7thDev/practice-app) and consumes the SSE stream from this server.
+
+In compact ASCII for terminal reading:
+
+```
+3 Exchange WebSockets ──► Backend Bot (Railway) ──SSE──► Frontend (Vercel)
+                          │
+                          ├─ WS clients (reconnect 1s→30s backoff)
+                          ├─ Detector (6 routes × 2 pairs per tick, <1ms eval)
+                          ├─ Cost model (4-stack: trading + withdrawal + slippage + latency)
+                          ├─ Executor (cooldown 3s, stale 60s skip, circuit breaker >2%)
+                          ├─ Wallet (USDT + BTC + ETH × 3 exchanges, multi-asset)
+                          ├─ Latency monitor (REST ping every 30s, measured RTT)
+                          └─ HTTP/SSE server (Hono, 200ms push cadence)
+```
 
 ## Feature matrix vs the challenge requirements
 
@@ -158,6 +152,15 @@ Sample `/state` response shape:
   "stats": { "totalArbitrageProfit": 4.86, "hypotheticalRetailLoss": -430.94, "successRate": 0.016, "bestRoute": {...}, "avgEvalLatencyMs": 0.4, "profitByPair": {"BTC/USDT": 3.21, "ETH/USDT": 1.65}, ... },
   "counters": { "opportunitiesScanned": 20682, "profitableDetected": 330, "skippedCooldown": 304, "lostOpportunityUSD": 87.41, ... }
 }
+```
+
+## Tests
+
+Vitest unit suite covers the critical math: fee constants, opportunity detection (gross/net, suspicious flag, sorting, volume cap, cost components), and wallet management (initial state, executable volume constraints, trade execution mutation, multi-asset, partial flagging).
+
+```bash
+pnpm test          # 28 tests across 3 files
+pnpm test:watch    # watch mode
 ```
 
 ## Run locally

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 620" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#52525b"/>
+    </marker>
+    <marker id="arrow-emerald" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#10b981"/>
+    </marker>
+  </defs>
+
+  <rect width="1100" height="620" fill="#09090b"/>
+
+  <!-- Title -->
+  <text x="40" y="40" fill="#fafafa" font-size="22" font-weight="600">Faro · Architecture</text>
+  <text x="40" y="62" fill="#71717a" font-size="13">Real-time BTC + ETH arbitrage bot — multi-exchange, multi-pair, full cost model</text>
+
+  <!-- ====== EXCHANGES TOP ====== -->
+  <g>
+    <text x="80" y="115" fill="#a1a1aa" font-size="11" font-weight="600" text-transform="uppercase" letter-spacing="1">Public Exchange WebSockets</text>
+
+    <rect x="80" y="130" width="280" height="110" rx="8" fill="#18181b" stroke="#27272a"/>
+    <text x="100" y="158" fill="#fafafa" font-size="14" font-weight="600">Binance.US</text>
+    <text x="100" y="180" fill="#71717a" font-size="11" font-family="ui-monospace, monospace">wss://stream.binance.us:9443</text>
+    <text x="100" y="198" fill="#a1a1aa" font-size="11">combined stream:</text>
+    <text x="100" y="214" fill="#fbbf24" font-size="11" font-family="ui-monospace, monospace">btcusdt@bookTicker</text>
+    <text x="100" y="230" fill="#a78bfa" font-size="11" font-family="ui-monospace, monospace">ethusdt@bookTicker</text>
+
+    <rect x="410" y="130" width="280" height="110" rx="8" fill="#18181b" stroke="#27272a"/>
+    <text x="430" y="158" fill="#fafafa" font-size="14" font-weight="600">Coinbase Advanced</text>
+    <text x="430" y="180" fill="#71717a" font-size="11" font-family="ui-monospace, monospace">wss://ws-feed.exchange.coinbase.com</text>
+    <text x="430" y="198" fill="#a1a1aa" font-size="11">channel ticker_batch:</text>
+    <text x="430" y="214" fill="#fbbf24" font-size="11" font-family="ui-monospace, monospace">BTC-USDT</text>
+    <text x="430" y="230" fill="#a78bfa" font-size="11" font-family="ui-monospace, monospace">ETH-USDT</text>
+
+    <rect x="740" y="130" width="280" height="110" rx="8" fill="#18181b" stroke="#27272a"/>
+    <text x="760" y="158" fill="#fafafa" font-size="14" font-weight="600">Kraken v2</text>
+    <text x="760" y="180" fill="#71717a" font-size="11" font-family="ui-monospace, monospace">wss://ws.kraken.com/v2</text>
+    <text x="760" y="198" fill="#a1a1aa" font-size="11">channel ticker:</text>
+    <text x="760" y="214" fill="#fbbf24" font-size="11" font-family="ui-monospace, monospace">BTC/USDT</text>
+    <text x="760" y="230" fill="#a78bfa" font-size="11" font-family="ui-monospace, monospace">ETH/USDT</text>
+  </g>
+
+  <!-- Arrows down to backend -->
+  <line x1="220" y1="240" x2="380" y2="285" stroke="#52525b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="550" y1="240" x2="550" y2="285" stroke="#52525b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="880" y1="240" x2="720" y2="285" stroke="#52525b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ====== BACKEND CENTER ====== -->
+  <g>
+    <rect x="80" y="290" width="940" height="190" rx="10" fill="#0c4a6e" fill-opacity="0.15" stroke="#0e7490" stroke-dasharray="2 4"/>
+    <text x="100" y="313" fill="#67e8f9" font-size="11" font-weight="600" text-transform="uppercase" letter-spacing="1">Backend bot · Railway · Node 22 + TypeScript + Hono</text>
+
+    <!-- Sub-modules row 1 -->
+    <rect x="100" y="328" width="200" height="65" rx="6" fill="#18181b" stroke="#27272a"/>
+    <text x="115" y="350" fill="#fafafa" font-size="12" font-weight="600">WS clients · ws</text>
+    <text x="115" y="368" fill="#71717a" font-size="10">3 connections, reconnect</text>
+    <text x="115" y="382" fill="#71717a" font-size="10">backoff 1s→30s</text>
+
+    <rect x="320" y="328" width="200" height="65" rx="6" fill="#18181b" stroke="#27272a"/>
+    <text x="335" y="350" fill="#fafafa" font-size="12" font-weight="600">Detector</text>
+    <text x="335" y="368" fill="#71717a" font-size="10">6 routes × 2 pairs per tick</text>
+    <text x="335" y="382" fill="#71717a" font-size="10">sub-1ms eval</text>
+
+    <rect x="540" y="328" width="200" height="65" rx="6" fill="#18181b" stroke="#27272a"/>
+    <text x="555" y="350" fill="#fafafa" font-size="12" font-weight="600">Cost model · decimal.js</text>
+    <text x="555" y="368" fill="#71717a" font-size="10">trading + withdrawal +</text>
+    <text x="555" y="382" fill="#71717a" font-size="10">slippage + latency</text>
+
+    <rect x="760" y="328" width="240" height="65" rx="6" fill="#18181b" stroke="#27272a"/>
+    <text x="775" y="350" fill="#fafafa" font-size="12" font-weight="600">Executor + Wallet</text>
+    <text x="775" y="368" fill="#71717a" font-size="10">USDT + BTC + ETH × 3 exchanges</text>
+    <text x="775" y="382" fill="#71717a" font-size="10">cooldown 3s · stale 60s · partials</text>
+
+    <!-- Sub-modules row 2 -->
+    <rect x="100" y="405" width="280" height="60" rx="6" fill="#18181b" stroke="#27272a"/>
+    <text x="115" y="427" fill="#fafafa" font-size="12" font-weight="600">Risk guards</text>
+    <text x="115" y="443" fill="#71717a" font-size="10">circuit breaker (spread &gt; 2%)</text>
+    <text x="115" y="457" fill="#71717a" font-size="10">stale skip · lost-opp tracking</text>
+
+    <rect x="400" y="405" width="280" height="60" rx="6" fill="#18181b" stroke="#27272a"/>
+    <text x="415" y="427" fill="#fafafa" font-size="12" font-weight="600">Network latency monitor</text>
+    <text x="415" y="443" fill="#71717a" font-size="10">REST ping every 30s</text>
+    <text x="415" y="457" fill="#71717a" font-size="10">measured RTT per exchange</text>
+
+    <rect x="700" y="405" width="300" height="60" rx="6" fill="#18181b" stroke="#27272a"/>
+    <text x="715" y="427" fill="#fafafa" font-size="12" font-weight="600">Hono HTTP + SSE</text>
+    <text x="715" y="443" fill="#71717a" font-size="10">GET /health · /state · /stream</text>
+    <text x="715" y="457" fill="#71717a" font-size="10">snapshot every 200ms</text>
+  </g>
+
+  <!-- Arrow to frontend -->
+  <line x1="550" y1="480" x2="550" y2="525" stroke="#10b981" stroke-width="2" marker-end="url(#arrow-emerald)"/>
+  <text x="565" y="510" fill="#10b981" font-size="11" font-family="ui-monospace, monospace">SSE</text>
+
+  <!-- ====== FRONTEND BOTTOM ====== -->
+  <g>
+    <rect x="80" y="530" width="940" height="70" rx="10" fill="#1e1b4b" fill-opacity="0.25" stroke="#4338ca" stroke-dasharray="2 4"/>
+    <text x="100" y="553" fill="#a5b4fc" font-size="11" font-weight="600" text-transform="uppercase" letter-spacing="1">Frontend dashboard · Vercel · Next.js 16 + Tailwind + shadcn + recharts</text>
+    <text x="100" y="577" fill="#a1a1aa" font-size="11">EventSource consume · hero stats · equity curve · per-pair sections · wallet cards · executed trades · opportunities</text>
+    <text x="100" y="593" fill="#71717a" font-size="10">Pure read-only client. No state, no actions. Bot logic stays server-side.</text>
+  </g>
+</svg>
