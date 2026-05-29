@@ -10,13 +10,18 @@ export interface Opportunity {
   maxVolume: number;
   grossSpread: number;
   grossProfit: number;
+  // Cost breakdown (todo se resta del gross)
   buyFee: number;
   sellFee: number;
-  totalFees: number;
-  netProfit: number;
+  tradingFees: number; // = buyFee + sellFee
+  amortizedWithdrawal: number; // costo de rebalance amortizado por trade
+  estimatedSlippage: number; // price impact estimado
+  latencyCost: number; // adverse movement estimado durante RTT
+  totalCosts: number; // = tradingFees + amortizedWithdrawal + slippage + latency
+  netProfit: number; // = grossProfit - totalCosts
   netSpread: number;
   profitable: boolean;
   suspicious: boolean;
-  retailFees: number;
+  retailTradingFees: number;
   retailNetProfit: number;
 }

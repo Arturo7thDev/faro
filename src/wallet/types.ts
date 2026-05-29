@@ -17,9 +17,12 @@ export interface ExecutedTrade {
   requestedVolume: number;
   executedVolume: number;
   partial: boolean;
-  buyFee: number;
-  sellFee: number;
-  totalFees: number;
+  // Cost breakdown completo
+  tradingFees: number;
+  amortizedWithdrawal: number;
+  estimatedSlippage: number;
+  latencyCost: number;
+  totalCosts: number;
   grossProfit: number;
   netProfit: number;
   retailNetProfit: number;
@@ -56,7 +59,11 @@ export interface PortfolioStats {
   initialETH: number;
   totalArbitrageProfit: number;
   totalTrades: number;
-  totalFeesPaid: number;
+  totalTradingFees: number;
+  totalAmortizedWithdrawal: number;
+  totalEstimatedSlippage: number;
+  totalLatencyCost: number;
+  totalCosts: number;
   currentBTCPrice: number;
   currentETHPrice: number;
   currentPortfolioValueUSDT: number;
@@ -66,7 +73,6 @@ export interface PortfolioStats {
   bestRoute: RoutePerformance | null;
   worstRoute: RoutePerformance | null;
   avgEvalLatencyMs: number;
-  // Breakdown por par
   profitByPair: Record<Pair, number>;
   tradesByPair: Record<Pair, number>;
 }

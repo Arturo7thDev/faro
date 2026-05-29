@@ -1,5 +1,11 @@
 import Decimal from "decimal.js";
-import { FEES, RETAIL_TAKER_PERCENT } from "../arbitrage/fees.js";
+import {
+  ESTIMATED_SLIPPAGE_PCT,
+  FEES,
+  LATENCY_COST_PCT,
+  N_TRADES_PER_REBALANCE,
+  RETAIL_TAKER_PERCENT,
+} from "../arbitrage/fees.js";
 import type { Opportunity } from "../arbitrage/types.js";
 import type { ExchangeName, Pair, Ticker } from "../exchanges/types.js";
 import { pairToAsset } from "../exchanges/types.js";
@@ -90,16 +96,38 @@ export class WalletManager {
     const buyFee = usdtSpent.mul(FEES[opp.buyExchange].takerPercent);
     const usdtReceived = sellPrice.mul(volume);
     const sellFee = usdtReceived.mul(FEES[opp.sellExchange].takerPercent);
+    const tradingFees = buyFee.plus(sellFee);
 
+    // Withdrawal amortizado
+    const withdrawalFeeAsset =
+      asset === "BTC"
+        ? FEES[opp.sellExchange].withdrawalBTC
+        : FEES[opp.sellExchange].withdrawalETH;
+    const withdrawalCostUSD = new Decimal(withdrawalFeeAsset).mul(buyPrice);
+    const amortizedWithdrawal = withdrawalCostUSD.div(N_TRADES_PER_REBALANCE);
+
+    // Slippage + latency
+    const avgPrice = buyPrice.plus(sellPrice).div(2);
+    const tradeValue = avgPrice.mul(volume).mul(2);
+    const estimatedSlippage = tradeValue.mul(ESTIMATED_SLIPPAGE_PCT);
+    const latencyCost = tradeValue.mul(LATENCY_COST_PCT);
+
+    const totalCosts = tradingFees
+      .plus(amortizedWithdrawal)
+      .plus(estimatedSlippage)
+      .plus(latencyCost);
+
+    // Mutación real de wallets — solo se aplican trading fees a los balances
+    // (los demás costos son modelo, no afectan al saldo simulado)
     buyWallet.usdt -= usdtSpent.plus(buyFee).toNumber();
     this.addAsset(buyWallet, asset, volume.toNumber());
     this.addAsset(sellWallet, asset, -volume.toNumber());
     sellWallet.usdt += usdtReceived.minus(sellFee).toNumber();
 
     const grossProfit = sellPrice.minus(buyPrice).mul(volume);
-    const totalFees = buyFee.plus(sellFee);
-    const netProfit = grossProfit.minus(totalFees);
+    const netProfit = grossProfit.minus(totalCosts);
 
+    // Retail comparison: solo trading fees retail (el retail no ve los otros costos tampoco)
     const retailBuyFee = usdtSpent.mul(RETAIL_TAKER_PERCENT);
     const retailSellFee = usdtReceived.mul(RETAIL_TAKER_PERCENT);
     const retailTotalFees = retailBuyFee.plus(retailSellFee);
@@ -116,9 +144,11 @@ export class WalletManager {
       requestedVolume: opp.maxVolume,
       executedVolume,
       partial: executedVolume < opp.maxVolume * 0.999,
-      buyFee: buyFee.toNumber(),
-      sellFee: sellFee.toNumber(),
-      totalFees: totalFees.toNumber(),
+      tradingFees: tradingFees.toNumber(),
+      amortizedWithdrawal: amortizedWithdrawal.toNumber(),
+      estimatedSlippage: estimatedSlippage.toNumber(),
+      latencyCost: latencyCost.toNumber(),
+      totalCosts: totalCosts.toNumber(),
       grossProfit: grossProfit.toNumber(),
       netProfit: netProfit.toNumber(),
       retailNetProfit: retailNetProfit.toNumber(),
@@ -139,7 +169,23 @@ export class WalletManager {
       (sum, t) => sum + t.netProfit,
       0,
     );
-    const totalFeesPaid = this.trades.reduce((sum, t) => sum + t.totalFees, 0);
+    const totalTradingFees = this.trades.reduce(
+      (sum, t) => sum + t.tradingFees,
+      0,
+    );
+    const totalAmortizedWithdrawal = this.trades.reduce(
+      (sum, t) => sum + t.amortizedWithdrawal,
+      0,
+    );
+    const totalEstimatedSlippage = this.trades.reduce(
+      (sum, t) => sum + t.estimatedSlippage,
+      0,
+    );
+    const totalLatencyCost = this.trades.reduce(
+      (sum, t) => sum + t.latencyCost,
+      0,
+    );
+    const totalCosts = this.trades.reduce((sum, t) => sum + t.totalCosts, 0);
     const hypotheticalRetailLoss = this.trades.reduce(
       (sum, t) => sum + t.retailNetProfit,
       0,
@@ -222,7 +268,11 @@ export class WalletManager {
       initialETH: INITIAL_ETH,
       totalArbitrageProfit,
       totalTrades: this.trades.length,
-      totalFeesPaid,
+      totalTradingFees,
+      totalAmortizedWithdrawal,
+      totalEstimatedSlippage,
+      totalLatencyCost,
+      totalCosts,
       currentBTCPrice,
       currentETHPrice,
       currentPortfolioValueUSDT,
