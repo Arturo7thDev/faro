@@ -2,12 +2,11 @@
   "name": "faro",
   "version": "0.1.0",
   "description": "Bot de arbitraje BTC en tiempo real con cálculo neto end-to-end",
-  "main": "dist/index.js",
+  "main": "src/index.ts",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "tsx src/index.ts"
   },
   "engines": {
     "node": ">=22.0.0"
