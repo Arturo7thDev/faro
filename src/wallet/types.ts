@@ -26,6 +26,8 @@ export interface ExecutedTrade {
 export interface ScanCounters {
   opportunitiesScanned: number;
   profitableDetected: number;
+  // Oportunidades rentables skipeadas por usar al menos un ticker stale
+  skippedStaleData: number;
 }
 
 export interface PortfolioStats {

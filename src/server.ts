@@ -27,7 +27,7 @@ function snapshot(state: ServerState) {
     })),
     opportunities: state.recentOpportunities.slice(0, 20),
     wallets: state.wallet.getAllBalances(),
-    executedTrades: state.wallet.getTrades(30),
+    executedTrades: state.wallet.getTrades(200),
     stats: state.wallet.getStats(state.tickers),
     counters: state.counters,
     timestamp: now,

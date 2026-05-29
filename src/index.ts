@@ -12,6 +12,8 @@ console.log("Faro starting...");
 
 const MAX_OPP_HISTORY = 100;
 const EXECUTION_COOLDOWN_MS = 5000;
+// Threshold: si un ticker no se actualizó en este tiempo, NO ejecutar sobre él
+const EXECUTION_STALE_THRESHOLD_MS = 10_000;
 
 const wallet = new WalletManager();
 const lastExecutionByPair = new Map<string, number>();
@@ -19,6 +21,7 @@ const lastExecutionByPair = new Map<string, number>();
 const counters: ScanCounters = {
   opportunitiesScanned: 0,
   profitableDetected: 0,
+  skippedStaleData: 0,
 };
 
 const state: ServerState = {
@@ -32,13 +35,17 @@ function pairKey(buy: ExchangeName, sell: ExchangeName): string {
   return `${buy}-${sell}`;
 }
 
+function isTickerStale(ticker: Ticker | undefined, now: number): boolean {
+  if (!ticker) return true;
+  return now - ticker.timestamp > EXECUTION_STALE_THRESHOLD_MS;
+}
+
 function onTicker(t: Ticker): void {
   state.tickers.set(t.exchange, t);
   if (state.tickers.size < 2) return;
 
   const opps = detectOpportunities(state.tickers);
 
-  // Contadores acumulativos
   counters.opportunitiesScanned += opps.length;
   counters.profitableDetected += opps.filter((o) => o.profitable).length;
 
@@ -51,18 +58,26 @@ function onTicker(t: Ticker): void {
 
   const best: Opportunity | undefined = opps[0];
   if (!best || !best.profitable) return;
-  // Circuit breaker: NUNCA ejecutar oportunidades sospechosas
   if (best.suspicious) return;
+
+  // NUEVO: no ejecutar sobre data stale (cualquiera de los dos lados)
+  const now = Date.now();
+  const buyTicker = state.tickers.get(best.buyExchange);
+  const sellTicker = state.tickers.get(best.sellExchange);
+  if (isTickerStale(buyTicker, now) || isTickerStale(sellTicker, now)) {
+    counters.skippedStaleData++;
+    return;
+  }
 
   const key = pairKey(best.buyExchange, best.sellExchange);
   const lastExec = lastExecutionByPair.get(key) ?? 0;
-  if (Date.now() - lastExec < EXECUTION_COOLDOWN_MS) return;
+  if (now - lastExec < EXECUTION_COOLDOWN_MS) return;
 
   const executableVolume = wallet.maxExecutableVolume(best);
   if (executableVolume <= 0) return;
 
   const trade = wallet.executeTrade(best, executableVolume);
-  lastExecutionByPair.set(key, Date.now());
+  lastExecutionByPair.set(key, now);
 
   console.log(
     `[EXECUTED] ${trade.buyExchange} → ${trade.sellExchange} | ` +

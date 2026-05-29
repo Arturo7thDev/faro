@@ -99,7 +99,8 @@ export class WalletManager {
     };
 
     this.trades.unshift(trade);
-    if (this.trades.length > 100) this.trades.pop();
+    // Mantenemos historial amplio para el chart de equity curve
+    if (this.trades.length > 500) this.trades.pop();
 
     return trade;
   }
