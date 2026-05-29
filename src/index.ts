@@ -51,6 +51,8 @@ function onTicker(t: Ticker): void {
 
   const best: Opportunity | undefined = opps[0];
   if (!best || !best.profitable) return;
+  // Circuit breaker: NUNCA ejecutar oportunidades sospechosas
+  if (best.suspicious) return;
 
   const key = pairKey(best.buyExchange, best.sellExchange);
   const lastExec = lastExecutionByPair.get(key) ?? 0;

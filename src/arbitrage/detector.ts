@@ -3,6 +3,10 @@ import type { ExchangeName, Ticker } from "../exchanges/types.js";
 import { FEES, RETAIL_TAKER_PERCENT } from "./fees.js";
 import type { Opportunity } from "./types.js";
 
+// Circuit breaker: spread > 2% del precio = sospechoso (stale, fat finger).
+// El executor NUNCA ejecuta una opportunity marcada suspicious.
+const SUSPICIOUS_SPREAD_RATIO = 0.02;
+
 export function detectOpportunities(
   tickers: Map<ExchangeName, Ticker>,
 ): Opportunity[] {
@@ -40,11 +44,14 @@ function buildOpportunity(buyT: Ticker, sellT: Ticker): Opportunity {
     ? new Decimal(0)
     : netProfit.div(volume);
 
-  // Comparativa retail: mismo trade pero pagando 0.5% en cada lado
   const retailBuyFee = buyPrice.mul(volume).mul(RETAIL_TAKER_PERCENT);
   const retailSellFee = sellPrice.mul(volume).mul(RETAIL_TAKER_PERCENT);
   const retailFees = retailBuyFee.plus(retailSellFee);
   const retailNetProfit = grossProfit.minus(retailFees);
+
+  // Circuit breaker: spread vs precio
+  const spreadRatio = grossSpread.div(buyPrice).toNumber();
+  const suspicious = spreadRatio > SUSPICIOUS_SPREAD_RATIO;
 
   return {
     timestamp: Date.now(),
@@ -61,6 +68,7 @@ function buildOpportunity(buyT: Ticker, sellT: Ticker): Opportunity {
     netProfit: netProfit.toNumber(),
     netSpread: netSpread.toNumber(),
     profitable: netProfit.gt(0),
+    suspicious,
     retailFees: retailFees.toNumber(),
     retailNetProfit: retailNetProfit.toNumber(),
   };

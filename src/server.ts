@@ -7,6 +7,9 @@ import type { ExchangeName, Ticker } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
 import type { ScanCounters } from "./wallet/types.js";
 
+// Si un exchange no manda ticks en este tiempo, lo marcamos como stale.
+const STALE_THRESHOLD_MS = 10_000;
+
 export interface ServerState {
   tickers: Map<ExchangeName, Ticker>;
   recentOpportunities: Opportunity[];
@@ -15,14 +18,19 @@ export interface ServerState {
 }
 
 function snapshot(state: ServerState) {
+  const now = Date.now();
   return {
-    tickers: Array.from(state.tickers.values()),
+    tickers: Array.from(state.tickers.values()).map((t) => ({
+      ...t,
+      stale: now - t.timestamp > STALE_THRESHOLD_MS,
+      ageMs: now - t.timestamp,
+    })),
     opportunities: state.recentOpportunities.slice(0, 20),
     wallets: state.wallet.getAllBalances(),
     executedTrades: state.wallet.getTrades(30),
     stats: state.wallet.getStats(state.tickers),
     counters: state.counters,
-    timestamp: Date.now(),
+    timestamp: now,
   };
 }
 

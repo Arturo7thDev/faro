@@ -15,7 +15,8 @@ export interface Opportunity {
   netProfit: number;
   netSpread: number;
   profitable: boolean;
-  // Comparativa: qué hubiera dado el MISMO trade a fees retail (0.5%)
+  // Spread > 2% del precio = probable data stale / fat finger
+  suspicious: boolean;
   retailFees: number;
   retailNetProfit: number;
 }
