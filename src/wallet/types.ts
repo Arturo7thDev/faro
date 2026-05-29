@@ -56,6 +56,21 @@ export interface ExchangeStats {
   networkLatencyAt: number; // timestamp último ping
 }
 
+export interface ExchangeExposure {
+  exchange: ExchangeName;
+  usdValue: number;
+  pctOfPortfolio: number;
+  usdtPct: number; // qué % de su valor en USDT
+}
+
+export interface RiskMetrics {
+  maxDrawdownUSD: number;
+  maxDrawdownPercent: number; // de su peak
+  walletImbalance: number; // 0-1, std dev / mean del valor por exchange
+  capitalDeployedPercent: number; // % del capital inicial USDT que ya se movió por trades
+  exposureByExchange: ExchangeExposure[];
+}
+
 export interface PortfolioStats {
   initialCapitalUSDT: number;
   initialBTC: number;
@@ -78,4 +93,19 @@ export interface PortfolioStats {
   avgEvalLatencyMs: number;
   profitByPair: Record<Pair, number>;
   tradesByPair: Record<Pair, number>;
+  risk: RiskMetrics;
+}
+
+export interface Decision {
+  timestamp: number;
+  pair: Pair;
+  route: string;
+  outcome:
+    | "executed"
+    | "stale"
+    | "cooldown"
+    | "suspicious"
+    | "insufficient_capital";
+  netProfit: number; // net que tendría/tuvo
+  reason: string; // mensaje human-friendly
 }

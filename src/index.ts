@@ -12,12 +12,17 @@ import {
 import { detectOpportunities } from "./arbitrage/detector.js";
 import type { Opportunity } from "./arbitrage/types.js";
 import { WalletManager } from "./wallet/manager.js";
-import type { ExchangeStats, ScanCounters } from "./wallet/types.js";
+import type {
+  Decision,
+  ExchangeStats,
+  ScanCounters,
+} from "./wallet/types.js";
 import { startServer, type ServerState } from "./server.js";
 
 console.log("Faro starting...");
 
 const MAX_OPP_HISTORY_PER_PAIR = 100;
+const MAX_DECISIONS = 50;
 const EXECUTION_COOLDOWN_MS = 3000;
 const EXECUTION_STALE_THRESHOLD_MS = 60_000;
 const LATENCY_PING_INTERVAL_MS = 30_000;
@@ -41,6 +46,8 @@ for (const p of PAIRS) tickersByPair.set(p, new Map());
 const recentOpportunitiesByPair = new Map<Pair, Opportunity[]>();
 for (const p of PAIRS) recentOpportunitiesByPair.set(p, []);
 
+const decisions: Decision[] = [];
+
 interface RawExchangeStats {
   ticksReceived: number;
   firstTickAt: number;
@@ -58,6 +65,7 @@ const state: ServerState = {
   recentOpportunitiesByPair,
   wallet,
   counters,
+  decisions,
   getExchangeStats: () => buildExchangeStats(),
   getAvgEvalLatencyMs: () =>
     totalEvalCount > 0 ? totalEvalTimeMs / totalEvalCount : 0,
@@ -65,6 +73,22 @@ const state: ServerState = {
 
 function execKey(pair: Pair, buy: ExchangeName, sell: ExchangeName): string {
   return `${pair}:${buy}-${sell}`;
+}
+
+function recordDecision(
+  opp: Opportunity,
+  outcome: Decision["outcome"],
+  reason: string,
+): void {
+  decisions.unshift({
+    timestamp: Date.now(),
+    pair: opp.pair,
+    route: `${opp.buyExchange}→${opp.sellExchange}`,
+    outcome,
+    netProfit: opp.netProfit,
+    reason,
+  });
+  if (decisions.length > MAX_DECISIONS) decisions.pop();
 }
 
 function isTickerStale(ticker: Ticker | undefined, now: number): boolean {
@@ -159,25 +183,34 @@ function onTicker(t: Ticker): void {
   if (best && best.profitable) {
     if (best.suspicious) {
       counters.skippedSuspicious++;
+      recordDecision(best, "suspicious", "spread > 2% — likely stale or fat finger");
     } else {
       const now = Date.now();
       const buyTicker = pairTickers.get(best.buyExchange);
       const sellTicker = pairTickers.get(best.sellExchange);
       if (isTickerStale(buyTicker, now) || isTickerStale(sellTicker, now)) {
         counters.skippedStaleData++;
+        recordDecision(best, "stale", "ticker > 60s old");
       } else {
         const key = execKey(best.pair, best.buyExchange, best.sellExchange);
         const lastExec = lastExecutionByKey.get(key) ?? 0;
         if (now - lastExec < EXECUTION_COOLDOWN_MS) {
           counters.skippedCooldown++;
           counters.lostOpportunityUSD += best.netProfit;
+          recordDecision(best, "cooldown", "same route < 3s ago");
         } else {
           const executableVolume = wallet.maxExecutableVolume(best);
           if (executableVolume <= 0) {
             counters.skippedInsufficientCapital++;
+            recordDecision(best, "insufficient_capital", "wallet exhausted");
           } else {
             const trade = wallet.executeTrade(best, executableVolume);
             lastExecutionByKey.set(key, now);
+            recordDecision(
+              best,
+              "executed",
+              `vol ${trade.executedVolume.toFixed(6)} · net +$${trade.netProfit.toFixed(2)}`,
+            );
             console.log(
               `[EXECUTED ${trade.pair}] ${trade.buyExchange} → ${trade.sellExchange} | ` +
                 `vol ${trade.executedVolume.toFixed(6)} | ` +
@@ -197,7 +230,6 @@ startBinance(onTicker);
 startCoinbase(onTicker);
 startKraken(onTicker);
 
-// Latency measurement: ping inicial + cada 30s
 pingAllExchanges();
 setInterval(pingAllExchanges, LATENCY_PING_INTERVAL_MS);
 

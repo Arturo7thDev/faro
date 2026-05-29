@@ -6,7 +6,7 @@ import type { Opportunity } from "./arbitrage/types.js";
 import type { ExchangeName, Pair, Ticker } from "./exchanges/types.js";
 import { PAIRS } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
-import type { ExchangeStats, ScanCounters } from "./wallet/types.js";
+import type { Decision, ExchangeStats, ScanCounters } from "./wallet/types.js";
 
 const STALE_THRESHOLD_MS = 60_000;
 
@@ -15,6 +15,7 @@ export interface ServerState {
   recentOpportunitiesByPair: Map<Pair, Opportunity[]>;
   wallet: WalletManager;
   counters: ScanCounters;
+  decisions: Decision[];
   getExchangeStats: () => ExchangeStats[];
   getAvgEvalLatencyMs: () => number;
 }
@@ -49,6 +50,7 @@ function snapshot(state: ServerState) {
     ),
     counters: state.counters,
     exchangeStats: state.getExchangeStats(),
+    decisions: state.decisions.slice(0, 15),
     timestamp: now,
   };
 }

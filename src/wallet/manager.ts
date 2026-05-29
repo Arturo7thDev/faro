@@ -11,8 +11,10 @@ import type { ExchangeName, Pair, Ticker } from "../exchanges/types.js";
 import { pairToAsset } from "../exchanges/types.js";
 import type {
   Balance,
+  ExchangeExposure,
   ExecutedTrade,
   PortfolioStats,
+  RiskMetrics,
   RoutePerformance,
   ScanCounters,
 } from "./types.js";
@@ -262,6 +264,8 @@ export class WalletManager {
         ? routesArr.sort((a, b) => a.totalProfit - b.totalProfit)[0]
         : null;
 
+    const risk = this.computeRisk(currentBTCPrice, currentETHPrice);
+
     return {
       initialCapitalUSDT: INITIAL_CAPITAL_USDT,
       initialBTC: INITIAL_BTC,
@@ -284,6 +288,71 @@ export class WalletManager {
       avgEvalLatencyMs,
       profitByPair: pairMap,
       tradesByPair: pairCount,
+      risk,
+    };
+  }
+
+  private computeRisk(btcPrice: number, ethPrice: number): RiskMetrics {
+    // Max drawdown sobre el equity curve cronológico
+    const chrono = this.trades.slice().reverse(); // oldest first
+    let cum = 0;
+    let peak = 0;
+    let maxDDAbs = 0;
+    let peakAtMaxDD = 0;
+    for (const t of chrono) {
+      cum += t.netProfit;
+      if (cum > peak) peak = cum;
+      const dd = peak - cum;
+      if (dd > maxDDAbs) {
+        maxDDAbs = dd;
+        peakAtMaxDD = peak;
+      }
+    }
+    const maxDrawdownPercent = peakAtMaxDD > 0 ? maxDDAbs / peakAtMaxDD : 0;
+
+    // Exposure por exchange
+    const expArr: ExchangeExposure[] = Array.from(this.balances.entries()).map(
+      ([exchange, b]) => {
+        const usdValue = b.usdt + b.btc * btcPrice + b.eth * ethPrice;
+        return {
+          exchange,
+          usdValue,
+          pctOfPortfolio: 0, // se setea después
+          usdtPct: usdValue > 0 ? b.usdt / usdValue : 0,
+        };
+      },
+    );
+    const totalValue = expArr.reduce((s, e) => s + e.usdValue, 0);
+    for (const e of expArr) {
+      e.pctOfPortfolio = totalValue > 0 ? e.usdValue / totalValue : 0;
+    }
+
+    // Imbalance: std dev del valor USD / mean (CV — coefficient of variation)
+    const mean = expArr.length > 0 ? totalValue / expArr.length : 0;
+    const variance =
+      expArr.length > 0
+        ? expArr.reduce((s, e) => s + Math.pow(e.usdValue - mean, 2), 0) /
+          expArr.length
+        : 0;
+    const stdDev = Math.sqrt(variance);
+    const walletImbalance = mean > 0 ? stdDev / mean : 0;
+
+    // Capital deployed: volumen trade USD acumulado relativo al capital inicial
+    const tradedVolumeUSD = this.trades.reduce(
+      (s, t) => s + t.executedVolume * t.buyPrice,
+      0,
+    );
+    const capitalDeployedPercent =
+      INITIAL_CAPITAL_USDT > 0
+        ? Math.min(1, tradedVolumeUSD / INITIAL_CAPITAL_USDT)
+        : 0;
+
+    return {
+      maxDrawdownUSD: maxDDAbs,
+      maxDrawdownPercent,
+      walletImbalance,
+      capitalDeployedPercent,
+      exposureByExchange: expArr,
     };
   }
 }
