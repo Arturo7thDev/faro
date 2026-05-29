@@ -18,9 +18,10 @@ console.log("Faro starting...");
 
 const MAX_OPP_HISTORY_PER_PAIR = 100;
 const EXECUTION_COOLDOWN_MS = 5000;
-// 30s: tolerante a los pares menos activos (Coinbase/Kraken BTC/USDT updatean cada 5-30s),
-// pero rechaza data realmente stale (>30s podría implicar WS roto)
-const EXECUTION_STALE_THRESHOLD_MS = 30_000;
+// 60s: tolerante a pares menos activos. Coinbase/Kraken BTC/USDT en mercados quietos
+// pueden tardar 30-60s entre updates (no hay trades nuevos, libros estables).
+// El circuit breaker (>2% spread = suspicious) sigue protegiendo de movimientos reales.
+const EXECUTION_STALE_THRESHOLD_MS = 60_000;
 
 const wallet = new WalletManager();
 const lastExecutionByKey = new Map<string, number>();
