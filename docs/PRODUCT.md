@@ -214,6 +214,18 @@ Demuestra el modelo. El estimator mantiene un posterior por exchange y converge 
 ### "¿Tu bot ganaría plata real?"
 A fees institucionales, sí — los números que ves son reales sobre el modelo simulado. A retail, no — y lo demostramos transparentemente con la columna "Neto en retail" en cada trade ejecutado.
 
+### "¿Cómo sé que tus números no están inflados?" (auditoría adversarial)
+Antes del submit ejecuté una auditoría externa adversarial contra mí mismo, documentada en `docs/AUDIT.md`. Recompuse el P&L de los trades ejecutados desde fórmulas duplicadas a mano, sin importar el código de contabilidad del bot. **El diff cumulative es de $0.000000.** Cuadra al centavo. Los precios reportados los verifiqué contra Binance.US y Coinbase Advanced públicos, diff de 0.0000%. El script de auditoría está incluido en el repo y cualquiera puede reproducirlo.
+
+### "¿Tu edge sobrevive a slippage real más alto?"
+Stress test honesto, también en `docs/AUDIT.md`: el edge sobrevive 2x slippage (aunque cae 73%), rompe a 3x. Si ambos slippage y latency suben 2x simultáneamente, también rompe. Es positivo bajo asunciones favorables, no robusto bajo asunciones adversas. Lo declaro porque cualquier jurado quant lo calcula en su cabeza igual — esconderlo sería peor que declararlo.
+
+### "¿La ventaja sobre el bot Naive viene del filtro o del tier de fees?"
+Principalmente del tier. Re-corrí los mismos 4 trades de Faro pero pagando fees retail (0.5%): habrían sido pérdida de $67.97. **El filtro inteligente solo, a fees retail, también pierde.** La tesis correcta del producto NO es "Faro filtra mejor que Naive". Es: "el arbitraje retail es matemáticamente imposible incluso con filtro perfecto — solo la combinación tier institucional + filtro honesto produce un edge, y ninguna pieza alcanza por separado". Esta atribución honesta está en el subtitle de la sección de comparativa.
+
+### "¿Cuántas observaciones tienes?"
+Pocas — el bot lleva runtime corto post-deploy y opera en mercados donde fees institucionales hacen rentables solo una fracción muy pequeña de oportunidades. Con n=4 trades, métricas como Sharpe no son señal sino ruido. La UI lo declara explícitamente cuando totalTrades < 10 con un banner que avisa que los números necesitan más muestras para ser estadísticamente informativos.
+
 ---
 
 ## 8. Mensaje final si se pregunta "¿por qué este proyecto?"

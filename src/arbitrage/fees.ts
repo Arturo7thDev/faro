@@ -42,7 +42,9 @@ export const RETAIL_TAKER_PERCENT = 0.005; // 0.50%
  * acumulamos USDT extra) se divide entre esos trades.
  *
  * Slippage estimado: incluso ejecutando al top of book, el price impact de cualquier
- * trade real es > 0. Modelo conservador para alto-volumen: 0.005% del trade value.
+ * trade real es > 0. Calibrado para tier market-maker top con volumen pequeño top-of-book:
+ * 0.002% del trade value. ESTE PARÁMETRO ES FRÁGIL — el edge sobrevive 2x pero rompe a 3x;
+ * stress test en docs/AUDIT.md.
  *
  * Latency cost: round-trip de ~100ms al exchange + processing. En ese tiempo el precio
  * puede moverse en contra del bot. Estimación conservadora: 0.001% del trade value.

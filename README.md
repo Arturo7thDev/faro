@@ -338,6 +338,30 @@ Para correr el frontend apuntando a tu backend local, ve al [repo del dashboard]
 - **Kelly multi-asset** (sizing cross-correlation aware entre oportunidades simultáneas de BTC/ETH)
 - **Dashboard de VaR + CVaR** junto al drawdown
 
+## Auditoría adversarial · honestidad declarada
+
+Antes del submit, ejecuté una auditoría adversarial externa de Faro contra
+mí mismo: reconstrucción independiente del P&L sin importar las funciones de
+contabilidad del bot, stress test del modelo de costos, comparación a misma
+estructura de fees, y verificación copy ↔ código.
+
+**Reporte completo: [`docs/AUDIT.md`](docs/AUDIT.md) · Script reproducible: [`docs/audit-script.py`](docs/audit-script.py)**
+
+Resumen de lo que arrojó:
+
+| Pasada | Resultado |
+|---|---|
+| **P&L cuadra al centavo** | ✅ recompuse independientemente, diff cumulative `$0.000000` |
+| **Precios verificados** | ✅ vs Binance.US y Coinbase Advanced públicos (`0.0000%` drift) |
+| **Métricas correctas** | ✅ Sharpe 0.670918 recomputado = reportado (per-trade) |
+| **Edge bajo stress** | ⚠️ frágil — sobrevive 2x slippage, rompe a 3x, rompe a 2x slippage + 2x latency |
+| **Naive vs Faro** | ⚠️ la ventaja viene principalmente del **tier de fees**, no del filtro. Faro a fees retail también pierde sobre los mismos trades. Tesis refinada en consecuencia. |
+| **Reproducibilidad por terceros** | ❌ no hay log inmutable; el primer punto del roadmap es Postgres + TimescaleDB |
+
+Drift copy↔código detectados y **corregidos** en el audit: UI decía "sobrevivieron > 1s" cuando el código usa `500ms`; comentario en `fees.ts` decía slippage "0.005%" cuando la constante es `0.002%`. Ambos alineados.
+
+**La tesis correcta del producto, post-audit**: el arbitraje retail es matemáticamente imposible incluso con un filtro inteligente — los fees retail destruyen cada oportunidad. La única configuración viable es **tier institucional + filtro honesto trabajando juntos**. Faro demuestra ambas piezas y prueba que ninguna alcanza por separado.
+
 ## Otros recursos
 
 - 📡 **API en vivo del backend** — [`/state`](https://faro-production-9be0.up.railway.app/state) (snapshot JSON) · [`/stream`](https://faro-production-9be0.up.railway.app/stream) (SSE) · [`/health`](https://faro-production-9be0.up.railway.app/health)
