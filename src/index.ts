@@ -210,6 +210,21 @@ function evaluateTriangular(now: number): void {
 }
 
 function onTicker(t: Ticker): void {
+  // Guard: descartar tickers malformados antes de que el NaN/0/Infinity
+  // se cuele al detector y termine corrompiendo balances del wallet.
+  // Fix del code review (issue crítico).
+  if (
+    !Number.isFinite(t.bid) ||
+    !Number.isFinite(t.ask) ||
+    !Number.isFinite(t.bidQty) ||
+    !Number.isFinite(t.askQty) ||
+    t.bid <= 0 ||
+    t.ask <= 0 ||
+    t.ask < t.bid
+  ) {
+    return;
+  }
+
   const evalStart = performance.now();
 
   trackExchangeTick(t.exchange);

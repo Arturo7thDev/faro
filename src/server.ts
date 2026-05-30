@@ -12,6 +12,32 @@ import type { Decision, ExchangeStats, ScanCounters } from "./wallet/types.js";
 
 const STALE_THRESHOLD_MS = 60_000;
 
+// Lock CORS al dominio público del frontend + localhost para dev.
+// Cualquier otro origin queda fuera del API público.
+const ALLOWED_ORIGINS = [
+  "https://practice-app-ivory.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:3001",
+];
+
+// Rate limiting in-memory simple por IP. Protege /state contra abuso de
+// scraping. /stream queda exento porque es conexión long-lived (la sostiene
+// el browser EventSource, no es spammable).
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 120; // 2 req/seg sostenido permitido
+const ipBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  let bucket = ipBuckets.get(ip);
+  if (!bucket || bucket.resetAt < now) {
+    bucket = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    ipBuckets.set(ip, bucket);
+  }
+  bucket.count++;
+  return bucket.count <= RATE_LIMIT_MAX_REQUESTS;
+}
+
 export interface ServerState {
   tickersByPair: Map<Pair, Map<ExchangeName, Ticker>>;
   recentOpportunitiesByPair: Map<Pair, Opportunity[]>;
@@ -42,29 +68,30 @@ function snapshot(state: ServerState) {
     ).slice(0, 20);
   }
 
+  // Calcular stats UNA sola vez por snapshot, reusar precios para naive.
+  // Antes esto se llamaba 3 veces por snapshot — fix del code review.
+  const stats = state.wallet.getStats(
+    state.tickersByPair,
+    state.counters,
+    state.getAvgEvalLatencyMs(),
+  );
+
   return {
     tickersByPair: tickersByPairObj,
     opportunitiesByPair: opportunitiesByPairObj,
     wallets: state.wallet.getAllBalances(),
     executedTrades: state.wallet.getTrades(200),
-    stats: state.wallet.getStats(
-      state.tickersByPair,
-      state.counters,
-      state.getAvgEvalLatencyMs(),
-    ),
+    stats,
     counters: state.counters,
     exchangeStats: state.getExchangeStats(),
     decisions: state.decisions.slice(0, 15),
     triangularOpportunities: state.recentTriangular.slice(0, 12),
     triangularTrades: state.wallet.getTriangularTrades(20),
     naive: {
-      stats: state.naive.getStats(
-        state.wallet.getStats(state.tickersByPair, state.counters, 0)
-          .currentBTCPrice,
-        state.wallet.getStats(state.tickersByPair, state.counters, 0)
-          .currentETHPrice,
-      ),
-      recentTrades: state.naive.getTrades(20),
+      stats: state.naive.getStats(stats.currentBTCPrice, stats.currentETHPrice),
+      // Igualar la ventana con Faro (200) para que la equity curve dual
+      // compare ventanas equivalentes, no Faro 200 vs Naive 20 como antes.
+      recentTrades: state.naive.getTrades(200),
     },
     timestamp: now,
   };
@@ -81,11 +108,29 @@ function enrichTicker(t: Ticker, now: number) {
 export function startServer(state: ServerState, port: number): void {
   const app = new Hono();
 
-  app.use("/*", cors());
+  // CORS restringido a los dominios autorizados (fix del code review).
+  app.use(
+    "/*",
+    cors({
+      origin: (origin) =>
+        origin && ALLOWED_ORIGINS.includes(origin) ? origin : "",
+      allowMethods: ["GET", "OPTIONS"],
+    }),
+  );
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
-  app.get("/state", (c) => c.json(snapshot(state)));
+  // Rate limit aplicado solo a /state (request short-lived, scrapeable).
+  app.get("/state", (c) => {
+    const ip =
+      c.req.header("x-forwarded-for")?.split(",")[0].trim() ??
+      c.req.header("x-real-ip") ??
+      "anonymous";
+    if (!checkRateLimit(ip)) {
+      return c.text("rate limit exceeded", 429);
+    }
+    return c.json(snapshot(state));
+  });
 
   app.get("/stream", (c) =>
     streamSSE(c, async (stream) => {
