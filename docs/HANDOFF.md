@@ -200,4 +200,57 @@ Si abrís una sesión nueva (incluso después de `/clear`), seguí estos pasos:
 
 ---
 
-Última actualización: 31 de mayo 2026, cierre de sesión de desarrollo principal.
+---
+
+## Production hardening — hallazgos del code review post-MVP
+
+Estos issues fueron identificados en un code review formal después del MVP. Los **CRÍTICOS marcados con ✅** ya están arreglados. Los demás son tickets pendientes para una iteración pre-producción real (NO son requisitos del hackathon).
+
+### Fixed antes del submit (commits separados)
+
+- ✅ **CORS wildcard → lockdown** a dominios autorizados (`server.ts`)
+- ✅ **Rate limiting básico** in-memory sobre `/state` (60s window, 120 req)
+- ✅ **Ticker validation** en `onTicker` — descartar NaN/0/negativos antes de propagación
+- ✅ **getStats triple-call** en snapshot → single call con prices reusados
+- ✅ **Naive recentTrades window** alineada a 200 (era 20 vs Faro 200) — fix del hero chart
+- ✅ **useFaroStream closure stale** → migrado a `useRef` para eliminar thrash de reconexión SSE en iPad
+
+### Pendientes (production hardening, NO requisitos del reto)
+
+#### ALTA prioridad
+
+- **`onTicker` es 80 líneas de business logic en el orquestador** (`index.ts:212-294`). Extraer un `ExecutionEngine` con `decide(opp, state): Decision` puro y testeable. Esfuerzo: 2-3h.
+- **`NaiveBot` duplica lógica de `WalletManager`** (constants, mutación de balance, fees). Extraer `BalanceLedger` común. Esfuerzo: 1-2h.
+- **`page.tsx` es 1700 líneas en un solo componente client**. Sin `React.memo`, sin split. Re-render completo cada 200ms. Mobile pasa de 60fps → 20fps. Dividir por sección con memoización por slice de state. Esfuerzo: 3-4h.
+- **`getStats` recorre `this.trades` 7 veces seguidas** (`wallet/manager.ts:240-310`). Fusionar en un solo pase. Esfuerzo: 30 min.
+- **`routesArr.sort()` ejecutado DOS veces consecutivas mutando in place** (`wallet/manager.ts:330,334`). Best y worst con un loop, sin sort. Esfuerzo: 15 min.
+- **Hot path Decimal allocation pressure**. Cada tick crea 15+ Decimals en el detector. A 100 ticks/sec → GC pauses. Refactor a math nativa con float64 en el HOT PATH, Decimal solo en mutación de balances. Esfuerzo: 2h.
+- **Equity curve cum_history** debería persistirse aparte (no recomputarse desde trades). Después de 500 trades el max drawdown SUBESTIMA el real porque pierde el peak. Esfuerzo: 1h.
+
+#### MEDIA prioridad
+
+- **WS handlers sin try/catch** (`binance.ts`, `coinbase.ts`, `kraken.ts`). Un mensaje malformado tumba el handler. Envolver todo en try/catch + log. Esfuerzo: 20 min.
+- **`recentTriangular.unshift(top)` agrega no-rentables** (`index.ts:178`). El feed se ensucia. Push solo si profitable o separar buffers. Esfuerzo: 10 min.
+- **Mediana de prices con `[Math.floor(n/2)]`** falla en arrays pares (`wallet/manager.ts:269`). Para 2 exchanges devuelve el segundo, no la media. Esfuerzo: 5 min.
+- **`recent.unshift(opps[0])` agrega no-profitable a recentOpportunitiesByPair** (`index.ts:228`). Ensucia el feed por par. Esfuerzo: 5 min.
+- **REST poller errors silenciados** (`restPoller.ts:35,57`). Si Coinbase/Kraken cambian formato, falla silenciosamente. Log sampleado. Esfuerzo: 10 min.
+- **`pingAllExchanges` no protege contra overlap** (`index.ts:147-170`). Si una iteración tarda > 30s, la siguiente se superpone. Flag `inFlight`. Esfuerzo: 10 min.
+- **`maxBuyable` puede ser Infinity** si `buyPrice = 0`. No hay invariante de balance no-negativo. Esfuerzo: 15 min.
+- **`tradedVolumeUSD` solo cuenta últimos 500 trades** (`wallet/manager.ts:413`). `capitalDeployedPercent` se queda en 100% para siempre. Counter monotónico. Esfuerzo: 15 min.
+- **`DecisionsFeed` "hace Xs" no se actualiza reactivamente** (`page.tsx:868`). Si SSE se traba, los timestamps quedan congelados. `setInterval` interno de 1s. Esfuerzo: 10 min.
+- **SSE sin heartbeat** — Railway proxy puede cortar a los 5min de "inactividad" del lado de bytes. Mandar `: keepalive\n\n` cada 15s. Esfuerzo: 10 min.
+- **Triangular cooldown comparado con `Date.now()` doble lectura** (`index.ts:182,290`). Capturar `now` una vez. Esfuerzo: 5 min.
+
+#### BAJA / NOTAS
+
+- **`getAvgEvalLatencyMs` diluye historia con presente**. Ring buffer de 1000 muestras. Esfuerzo: 15 min.
+- **`triangular.ts:59-60` usa `.bid` para conversión USD** en vez del mid. Sesgo de medio spread en reporting de fee USD. Esfuerzo: 5 min.
+- **`PORT = parseInt(...)` sin validación** (`index.ts:307`). Env mal seteado tira `serve`. Esfuerzo: 2 min.
+
+### Total estimado para limpiar todo
+
+Top 10 issues prioritarios ≈ **12-16h de focused work**. No necesario para el hackathon pero tickets claros para un sprint posterior.
+
+---
+
+Última actualización: 31 de mayo 2026, cierre de sesión de desarrollo principal con code review formal aplicado.
