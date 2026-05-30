@@ -11,12 +11,14 @@ import type { TriangularOpportunity } from "../arbitrage/triangular.js";
 import type { Asset, ExchangeName, Pair, Ticker } from "../exchanges/types.js";
 import { pairToAsset } from "../exchanges/types.js";
 import { computeReturnMetrics, percentile } from "./fintech.js";
+import { computeKellyFromTrades, type KellyResult } from "./kelly.js";
 import type {
   Balance,
   ExchangeExposure,
   ExecutedTrade,
   ExecutedTriangularTrade,
   FintechMetrics,
+  KellyMetrics,
   PortfolioStats,
   RiskMetrics,
   RoutePerformance,
@@ -156,6 +158,37 @@ export class WalletManager {
     const maxSellable = this.assetHeld(sellWallet, asset);
 
     return Math.min(opp.maxVolume, maxBuyable, maxSellable);
+  }
+
+  /**
+   * Volumen máximo permitido por Kelly Criterion dado el bankroll actual y
+   * la edge histórica observada. El bot debe usar min(maxExecutable, kelly).
+   */
+  kellyMaxVolume(
+    opp: Opportunity,
+    currentBTCPrice: number,
+    currentETHPrice: number,
+  ): number {
+    const kelly = computeKellyFromTrades(this.trades);
+    const portfolioValueUSDT = this.getPortfolioValueUSDT(
+      currentBTCPrice,
+      currentETHPrice,
+    );
+    const kellyMaxUSDT = portfolioValueUSDT * kelly.fractionalKelly;
+    if (opp.buyPrice <= 0) return 0;
+    return kellyMaxUSDT / opp.buyPrice;
+  }
+
+  getKellyResult(): KellyResult {
+    return computeKellyFromTrades(this.trades);
+  }
+
+  getPortfolioValueUSDT(btcPrice: number, ethPrice: number): number {
+    let total = 0;
+    for (const b of this.balances.values()) {
+      total += b.usdt + b.btc * btcPrice + b.eth * ethPrice;
+    }
+    return total;
   }
 
   executeTrade(opp: Opportunity, executedVolume: number): ExecutedTrade {
@@ -375,6 +408,20 @@ export class WalletManager {
       totalOpportunityDeaths: opportunityLifetimes.length,
     };
 
+    // Kelly position sizing — la fracción óptima del bankroll para arriesgar
+    // dada la edge observada. Solo activa después de >= 10 trades válidos.
+    const kellyRes = computeKellyFromTrades(this.trades);
+    const kelly: KellyMetrics = {
+      fullKelly: kellyRes.fullKelly,
+      fractionalKelly: kellyRes.fractionalKelly,
+      winProb: kellyRes.winProb,
+      edgeRatio: kellyRes.edgeRatio,
+      samples: kellyRes.samples,
+      isReliable: kellyRes.isReliable,
+      currentPositionSizeUSDT:
+        currentPortfolioValueUSDT * kellyRes.fractionalKelly,
+    };
+
     return {
       initialCapitalUSDT: INITIAL_CAPITAL_USDT,
       initialBTC: INITIAL_BTC,
@@ -400,6 +447,7 @@ export class WalletManager {
       risk,
       fintech,
       tobi: tobiCalibration,
+      kelly,
     };
   }
 

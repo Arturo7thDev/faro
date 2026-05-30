@@ -87,6 +87,21 @@ export interface RiskMetrics {
   exposureByExchange: ExchangeExposure[];
 }
 
+export interface KellyMetrics {
+  // f* sin cap. Negativo = esperanza negativa, NO apostar
+  fullKelly: number;
+  // f* * 0.25 (Fractional Kelly), capped a 0.20 (max 20% bankroll). Esto es
+  // lo que el bot realmente usa para sizing.
+  fractionalKelly: number;
+  // Win rate y edge observados sobre la historia de trades
+  winProb: number;
+  edgeRatio: number; // avg_win / avg_loss
+  samples: number; // trades válidos (excluye net=0)
+  isReliable: boolean; // true cuando samples >= 10
+  // Cuánto USDT apostaría sobre una opp fresca DADO el portfolio actual
+  currentPositionSizeUSDT: number;
+}
+
 export interface FintechMetrics {
   // Risk-adjusted return metrics — estándar de la industria
   sharpeRatio: number; // mean(returns) / stddev(returns), per-trade scale
@@ -130,6 +145,7 @@ export interface PortfolioStats {
   risk: RiskMetrics;
   fintech: FintechMetrics;
   tobi: TobiCalibration;
+  kelly: KellyMetrics;
 }
 
 export interface Decision {

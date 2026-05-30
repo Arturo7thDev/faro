@@ -164,6 +164,15 @@ function isTickerStale(ticker: Ticker | undefined, now: number): boolean {
   return now - ticker.timestamp > EXECUTION_STALE_THRESHOLD_MS;
 }
 
+function medianMidPrice(
+  tickers: Map<ExchangeName, Ticker> | undefined,
+): number {
+  if (!tickers || tickers.size === 0) return 0;
+  const mids = Array.from(tickers.values()).map((t) => (t.bid + t.ask) / 2);
+  mids.sort((a, b) => a - b);
+  return mids[Math.floor(mids.length / 2)];
+}
+
 function buildExchangeStats(): ExchangeStats[] {
   const now = Date.now();
   return Array.from(exchangeStats.entries()).map(([exchange, s]) => {
@@ -378,13 +387,22 @@ function onTicker(t: Ticker): void {
               counters.lostOpportunityUSD += best.netProfit;
               recordDecision(best, "cooldown", "misma ruta ejecutada hace menos de 3s");
             } else {
-              const executableVolume = wallet.maxExecutableVolume(best);
+              const technicalMax = wallet.maxExecutableVolume(best);
+              // Kelly cap: el bot nunca arriesga más del fractionalKelly del
+              // bankroll en un solo trade. Es la diferencia entre amateur
+              // (siempre full size) y pro (sizing según edge observada).
+              const btcPrice = medianMidPrice(tickersByPair.get("BTC/USDT"));
+              const ethPrice = medianMidPrice(tickersByPair.get("ETH/USDT"));
+              const kellyMax = wallet.kellyMaxVolume(best, btcPrice, ethPrice);
+              const executableVolume = Math.min(technicalMax, kellyMax);
               if (executableVolume <= 0) {
                 counters.skippedInsufficientCapital++;
                 recordDecision(
                   best,
                   "insufficient_capital",
-                  "wallet sin capital disponible",
+                  technicalMax <= 0
+                    ? "wallet sin capital disponible"
+                    : "Kelly = 0 — edge insuficiente",
                 );
               } else {
                 const trade = wallet.executeTrade(best, executableVolume);
