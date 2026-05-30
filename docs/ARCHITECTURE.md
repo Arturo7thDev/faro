@@ -214,7 +214,7 @@ We model network latency as a *cost*: during the RTT, the price can move adverse
 
 ### What we deliberately don't test
 
-- **Integration tests** (E2E): would require mocking 3 exchange WS feeds, time-consuming, low ROI for hackathon
+- **Integration tests** (E2E): would require mocking 3 exchange WS feeds, time-consuming, low ROI given the project's timebox
 - **Performance tests**: not promised
 - **The orchestrator (`index.ts`)**: it's mostly wiring; the modules it composes are tested
 
@@ -328,7 +328,7 @@ The system fails gracefully in every case. There's no scenario where the bot exe
 6. **Backtest harness**: Replay historical data through the bot, compare strategies.
 7. **Strategy A/B testing**: Run multiple cost models or detection algorithms in parallel, compare.
 
-None of these are needed for the 48h hackathon, but the architecture is designed to accept them as additions, not rewrites.
+None of these are needed for the current scope, but the architecture is designed to accept them as additions, not rewrites.
 
 ---
 

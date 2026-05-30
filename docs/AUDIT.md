@@ -87,7 +87,7 @@ El edge actual es positivo solo en una banda estrecha de asunciones:
 slippage real es ≥ 3x el estimado, o si ambos parámetros se subestimaron en
 ≥ 2x, el bot pierde dinero sobre estos mismos trades. Esto **no descalifica**
 el sistema — es justamente la transparencia que un sistema cuantitativo serio
-debe declarar. Lo escondemos y un jurado quant lo calcula en su cabeza igual.
+debe declarar. Esconderlo no cambia el resultado — cualquier ingeniero quant que revise el cost model calcula la misma fragilidad.
 
 ### Pass 4 — Same-fees baseline ⚠️ NARRATIVA REFINADA
 
@@ -216,28 +216,18 @@ script. Cualquiera de los dos casos es accionable.
 
 ---
 
-## Lecciones para presentar al jurado
+## Preguntas habituales sobre la auditoría
 
-Las preguntas que un jurado quant probablemente haga, y las respuestas honestas:
+Sintetizadas como referencia rápida — todas las respuestas son verificables contra el script reproducible y el snapshot del estado:
 
-**P: ¿Cómo sé que tus números no están inflados?**
-R: Está la auditoría independiente en `docs/AUDIT.md`. Recompuse el P&L
-desde los trades crudos con un script externo que no importa código del bot.
-Cuadra al centavo. Los precios fueron verificados contra Binance.US y
-Coinbase Advanced públicos.
+**¿Cómo se valida que los números no estén inflados?**
+La auditoría independiente está completa arriba. El script externo recompone el P&L desde los trades crudos sin importar código del bot. Cuadra al centavo. Los precios se verifican contra Binance.US y Coinbase Advanced públicos.
 
-**P: ¿Tu edge sobrevive a slippage real más alto?**
-R: Sobrevive 2x slippage (cae 73%), rompe a 3x. Si ambos slippage y latencia
-suben 2x, también rompe. El edge actual es positivo pero frágil — la tabla
-de stress test está documentada y es honesta.
+**¿Sobrevive el edge a slippage real más alto?**
+Sobrevive `2x` slippage (cae 73%), rompe a `3x`. Si ambos slippage y latencia suben `2x`, también rompe. El edge actual es positivo pero frágil — la tabla de stress test está documentada arriba.
 
-**P: ¿La ventaja sobre Naive viene del filtro o del tier de fees?**
-R: Principalmente del tier. Re-corrí los mismos trades de Faro con fees
-retail: serían pérdida de $68. La narrativa correcta no es "filtro vs
-naive", es "tier + filtro vs cualquiera de los dos solos".
+**¿La ventaja sobre Naive viene del filtro o del tier de fees?**
+Principalmente del tier. Los mismos trades de Faro con fees retail serían pérdida de `$68`. La narrativa correcta no es "filtro vs Naive", es "tier + filtro vs cualquiera de los dos solos".
 
-**P: ¿Cuántas observaciones tienes?**
-R: Pocas — el sistema lleva runtime corto post-deploy y opera en mercados
-donde fees institucionales hacen rentables solo una fracción muy pequeña
-de oportunidades. Sharpe con n=4 no es señal, es ruido — y la UI lo declara
-explícitamente cuando n<10.
+**¿Cuántas observaciones tiene el sistema?**
+Pocas — el sistema lleva runtime corto post-deploy y opera en mercados donde fees institucionales hacen rentables solo una fracción muy pequeña de oportunidades. Sharpe con `n=4` no es señal, es ruido — la UI lo declara explícitamente cuando `n<10`.

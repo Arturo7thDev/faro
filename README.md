@@ -112,9 +112,9 @@ En ASCII compacto para leer desde la terminal:
                               └─ HTTP/SSE    · Hono, push cada 200ms
 ```
 
-## Cómo cumplimos cada requisito del reto
+## Cumplimiento de los requisitos funcionales
 
-| # | Requisito | Cómo lo cumplimos |
+| # | Requisito | Implementación |
 |---|---|---|
 | 1 | Monitoreo real-time de order books en 2+ exchanges (WS o polling) | ✅ WebSockets a 3 exchanges, 3 pares cada uno (combined streams donde el exchange lo permite, REST fallback para pares ilíquidos) |
 | 2 | Detección de oportunidades cuando Ask A < Bid B | ✅ Detector evalúa los 6 routes direccionales por par en cada tick, p99 sub-2ms |
@@ -123,7 +123,7 @@ En ASCII compacto para leer desde la terminal:
 | 5 | Órdenes parciales + balances de wallets | ✅ Trades parciales marcados como tal, capeados por USDT (compra) y asset (venta). Wallets persisten en memoria con USDT + BTC + ETH por exchange |
 | 6 | Historial + visualización de rendimiento | ✅ Curva de equity en tiempo real (Faro y Naive en paralelo), tabla de trades ejecutados, log de oportunidades, stats acumulados por par |
 
-## Cobertura de los criterios de evaluación
+## Cobertura por criterio de evaluación
 
 | Criterio | Cobertura |
 |---|---|
@@ -134,24 +134,24 @@ En ASCII compacto para leer desde la terminal:
 | 5. Arquitectura y código | Adapter pattern por exchange, separación clara backend/frontend, tipos TypeScript estrictos, deploy 100% reproducible, **9 suites de tests** |
 | 6. UI/UX | Dark mode fintech, hero con storytelling visceral, equity curve en vivo, calibración del modelo TOBI en vivo, indicador de heartbeat, responsive en mobile |
 
-## Cómo evaluar este proyecto en 5 minutos
+## Recorrido rápido (5 minutos)
 
-Si tenés 5 minutos antes de decidir un puntaje, este es el orden óptimo:
+Orden sugerido para una primera revisión:
 
-1. **Hacé clic en el banner verde de arriba** — abre el dashboard. Mirá el badge "transmitiendo · X scans/s" en vivo y el haz de luz del faro rotando. Eso confirma que el sistema está corriendo ahora mismo, no es un mockup.
-2. **Bajá hasta "Faro vs Bot retail naive"** — ahí está la tesis del producto en 3 cards. El gap brutal entre Faro y Naive es el insight central.
+1. **Hacé clic en el banner verde de arriba** — abre el dashboard. El badge "transmitiendo · X scans/s" en vivo y el haz de luz del faro rotando confirman que el sistema está corriendo en producción.
+2. **Bajá hasta "Faro vs Bot retail naive"** — la tesis del producto en 3 cards. El gap entre Faro y Naive es el insight central.
 3. **Bajá hasta "Métricas fintech profesionales"** — Sharpe, Sortino, latencia p99 sub-2ms. Si hay banner ámbar sobre sample size, el bot acaba de reiniciar; los números necesitan más runtime.
 4. **Bajá hasta "TOBI · Top of Book Imbalance"** — la fórmula, la calibración en vivo y el filtro que bloquea oportunidades efímeras. Es la señal predictiva propia.
-5. **Abrí [`docs/AUDIT.md`](docs/AUDIT.md)** — auditoría adversarial que ejecuté contra mí mismo antes del submit. P&L cuadra al centavo, edge fragility documentado, atribución honesta de la ventaja sobre Naive. El [script de auditoría](docs/audit-script.py) es reproducible: cualquiera puede correrlo y verificar mis números.
+5. **Abrí [`docs/AUDIT.md`](docs/AUDIT.md)** — auditoría adversarial externa del sistema. P&L cuadra al centavo, edge fragility documentado, atribución honesta de la ventaja sobre Naive. El [script de auditoría](docs/audit-script.py) es reproducible.
 
-Si querés auditar el código directamente: `pnpm install && pnpm test` corre las 97 pruebas unitarias. Los puntos donde la lógica es no-obvia están comentados con el "por qué".
+Para auditar el código directamente: `pnpm install && pnpm test` corre las 97 pruebas unitarias. Los puntos donde la lógica es no-obvia están comentados con el "por qué".
 
 ## Auditoría adversarial · honestidad declarada
 
-Antes del submit, ejecuté una auditoría adversarial externa de Faro contra
-mí mismo: reconstrucción independiente del P&L sin importar las funciones de
-contabilidad del bot, stress test del modelo de costos, comparación a misma
-estructura de fees, y verificación copy ↔ código.
+Como parte del proceso de validación, se ejecutó una auditoría adversarial
+externa de Faro: reconstrucción independiente del P&L sin importar las
+funciones de contabilidad del bot, stress test del modelo de costos,
+comparación a misma estructura de fees, y verificación copy ↔ código.
 
 **Reporte completo: [`docs/AUDIT.md`](docs/AUDIT.md) · Script reproducible: [`docs/audit-script.py`](docs/audit-script.py)**
 
@@ -174,7 +174,7 @@ Drifts copy↔código detectados y **corregidos** en el audit: UI decía "sobrev
 
 ### Backend persistente (no serverless)
 
-Los WebSockets necesitan conexiones TCP de larga duración. Las funciones serverless de Vercel no las pueden sostener. Railway corre el bot 24/7 con auto-deploy desde GitHub, que es exactamente lo que pide la consigna del reto: *"el sistema debe estar corriendo y ser funcional en el momento de la evaluación."*
+Los WebSockets necesitan conexiones TCP de larga duración. Las funciones serverless de Vercel no las pueden sostener. Railway corre el bot 24/7 con auto-deploy desde GitHub — el sistema permanece operativo y accesible en producción de forma continua.
 
 ### `decimal.js` para todo cálculo que afecte centavos
 
@@ -198,7 +198,7 @@ A fees retail (0.4–0.6%), *cero* oportunidades de arbitraje BTC/ETH son rentab
 
 ### Sin base de datos persistente
 
-El bot es un stream processor. El estado (wallets, log de oportunidades, trades ejecutados, contadores) vive en memoria. Un restart de Railway pierde la historia. Para un demo de hackathon de 48h, es un trade-off aceptable — y nunca dijimos que esto fuera un sistema de trading de producción. Lo primero que agregaría una versión productiva es Postgres + TimescaleDB para historial de trades.
+El bot es un stream processor. El estado (wallets, log de oportunidades, trades ejecutados, contadores) vive en memoria. Un restart de Railway pierde la historia. Es un trade-off aceptable para una simulación; un sistema de trading productivo agregaría persistencia desde el primer día. Lo primero que sumaría una versión productiva es Postgres + TimescaleDB para historial de trades.
 
 ### Binance.US (no Binance.com)
 
@@ -229,7 +229,7 @@ Los contadores del header exponen esto transparentemente: `escaneadas · rentabl
 
 ### Métricas de performance estándar de industria
 
-Métricas fintech-grade que el jurado habla con fluidez — computadas en `src/wallet/fintech.ts` y expuestas en vivo en el dashboard:
+Métricas fintech-grade del lenguaje estándar de la industria — computadas en `src/wallet/fintech.ts` y expuestas en vivo en el dashboard:
 
 - **Sharpe ratio** — mean return / stddev de returns (a escala per-trade)
 - **Sortino ratio** — igual pero penalizando solo la varianza downside
@@ -250,7 +250,7 @@ survival   = (score + 2) / 4                               # rango [0, 1]
 
 El signo se calibró **empíricamente** contra hit rates observados en producción. En cripto a horizonte 200–500ms los market makers actúan como contrapeso del flujo direccional, así que el spread sobrevive más cuando ambos exchanges muestran imbalances opuestos. La intuición ingenua era al revés — los datos mandaron.
 
-Cuando `survivalProb < 0.5`, el bot **no ejecuta** — el modelo predice que la oportunidad muere antes de capturarse. La calibración se trackea en vivo agrupando las oportunidades detectadas en buckets (`high` / `medium` / `low`) y contando cuántas sobrevivieron más de **500ms**. El hit rate por bucket prueba que la señal discrimina, con datos que el jurado puede auditar en vivo desde la UI.
+Cuando `survivalProb < 0.5`, el bot **no ejecuta** — el modelo predice que la oportunidad muere antes de capturarse. La calibración se trackea en vivo agrupando las oportunidades detectadas en buckets (`high` / `medium` / `low`) y contando cuántas sobrevivieron más de **500ms**. El hit rate por bucket prueba que la señal discrimina, con datos auditables en vivo desde la UI.
 
 ### Kelly Criterion (position sizing)
 
@@ -376,7 +376,7 @@ Para correr el frontend apuntando a tu backend local, ve al [repo del dashboard]
 | Recortado | Por qué |
 |---|---|
 | Base de datos persistente (Postgres / Redis) | El estado en memoria alcanza para el demo. La persistencia sería el primer add-on para producción. |
-| Ejecución real en exchanges | La consigna del reto pide simulación, explícitamente. |
+| Ejecución real en exchanges | El alcance del proyecto es simulación. La ejecución real requeriría API keys con permisos de trading, KYC y capital real. |
 | Order book L2 depth | Usamos top-of-book qty con flag `partial`. Future work: conectar streams L2 para refinar el componente de slippage del modelo de costos. TOBI hoy se deriva de L1; con L2 se tensaría la señal. |
 | Reinforcement learning sobre las decisiones | TOBI es supervisado, calibrado contra supervivencia observada. RL necesitaría una señal de reward más rica de la que permite un timebox de 48h. |
 
@@ -390,33 +390,33 @@ Para correr el frontend apuntando a tu backend local, ve al [repo del dashboard]
 - **Kelly multi-asset** (sizing cross-correlation aware entre oportunidades simultáneas de BTC/ETH)
 - **Dashboard de VaR + CVaR** junto al drawdown
 
-## Preguntas frecuentes (que un jurado probablemente haga)
+## Preguntas frecuentes
 
-### ¿Cómo sé que tus números no están inflados?
-Antes del submit ejecuté una auditoría adversarial contra mí mismo, documentada en [`docs/AUDIT.md`](docs/AUDIT.md). Recompuse el P&L de los trades ejecutados desde fórmulas duplicadas a mano, sin importar el código de contabilidad del bot. **El diff cumulative es de `$0.000000`.** Cuadra al centavo. Los precios reportados los verifiqué contra Binance.US y Coinbase Advanced públicos, diff de `0.0000%`. El [script de auditoría](docs/audit-script.py) está incluido en el repo y cualquiera puede reproducirlo.
+### ¿Cómo se valida que los números no estén inflados?
+El repo incluye una auditoría adversarial completa en [`docs/AUDIT.md`](docs/AUDIT.md). El P&L de los trades ejecutados se recompone desde fórmulas duplicadas a mano, sin importar el código de contabilidad del bot. **El diff cumulative es de `$0.000000`** — cuadra al centavo. Los precios reportados se verifican contra Binance.US y Coinbase Advanced públicos, diff de `0.0000%`. El [script de auditoría](docs/audit-script.py) es reproducible por cualquier tercero.
 
-### ¿Tu edge sobrevive a slippage real más alto?
-Stress test honesto, también en [`docs/AUDIT.md`](docs/AUDIT.md): el edge sobrevive `2x` slippage (cae 73%) pero rompe a `3x`. Si ambos slippage y latencia suben `2x` simultáneamente, también rompe. Es positivo bajo asunciones favorables, no robusto bajo asunciones adversas. Lo declaro porque cualquier jurado quant lo calcula en su cabeza igual — esconderlo sería peor que declararlo.
+### ¿Sobrevive el edge a slippage real más alto?
+Stress test documentado en [`docs/AUDIT.md`](docs/AUDIT.md): el edge sobrevive `2x` slippage (cae 73%) pero rompe a `3x`. Si ambos slippage y latencia suben `2x` simultáneamente, también rompe. Es positivo bajo asunciones favorables, no robusto bajo asunciones adversas. Se declara explícitamente porque cualquier ingeniero quant que revise el cost model llega a la misma conclusión — esconderlo sería peor que declararlo.
 
 ### ¿La ventaja sobre el bot Naive viene del filtro o del tier de fees?
-Principalmente del tier. Re-corrí los mismos trades de Faro pagando fees retail (`0.5%`): habrían sido pérdida de `$67.97`. **El filtro inteligente solo, a fees retail, también pierde.** La tesis correcta NO es "Faro filtra mejor que Naive". Es: *el arbitraje retail es matemáticamente imposible incluso con filtro perfecto — solo la combinación tier institucional + filtro honesto produce un edge, y ninguna pieza alcanza por separado*. Esta atribución honesta está en el subtitle de la sección de comparativa.
+Principalmente del tier. Los mismos trades de Faro pagando fees retail (`0.5%`) habrían sido pérdida de `$67.97`. **El filtro inteligente solo, a fees retail, también pierde.** La tesis correcta no es "Faro filtra mejor que Naive". Es: *el arbitraje retail es matemáticamente imposible incluso con filtro perfecto — solo la combinación tier institucional + filtro honesto produce un edge, y ninguna pieza alcanza por separado*. Esta atribución está reflejada en el subtitle de la sección de comparativa.
 
-### ¿Cuántas observaciones tienes?
-Pocas — el bot lleva runtime corto post-deploy y opera en mercados donde fees institucionales hacen rentables solo una fracción pequeña de oportunidades. Con `n < 10` trades, métricas como Sharpe no son señal sino ruido. La UI lo declara explícitamente con un banner ámbar mientras los samples son insuficientes.
+### ¿Cuántas observaciones tiene el sistema?
+Pocas — el bot lleva runtime corto post-deploy y opera en mercados donde fees institucionales hacen rentables solo una fracción pequeña de oportunidades. Con `n < 10` trades, métricas como Sharpe son ruido, no señal. La UI lo declara explícitamente con un banner mientras los samples son insuficientes.
 
 ### ¿Por qué fees institucionales y no retail?
 A fees retail (`0.4–0.6%`), virtualmente CERO oportunidades de arbitraje BTC/ETH son rentables en condiciones normales de mercado. Modelar fees institucionales (`0.02–0.04%`, tier real para operadores con `$4B+` de volumen mensual — Binance VIP 9, Coinbase top tier) hace el demo viable. Para preservar la honestidad, la columna *"Neto en retail"* muestra lo que esas mismas oportunidades habrían rendido a tasas retail — y la respuesta es brutal: cada una se vuelve pérdida.
 
-### ¿Por qué no probaste en exchanges reales?
-La consigna del reto dice "simulación", explícitamente. Hacerlo real necesita API keys con permisos de trading, KYC, capital inicial real y la responsabilidad de pérdidas reales. Para 48h de hackathon, simulación con data en vivo era el balance correcto entre realismo y alcance.
+### ¿Por qué simulación y no ejecución real?
+El alcance del proyecto es simulación, explícitamente. La ejecución real requiere API keys con permisos de trading, KYC, capital inicial real y la responsabilidad de pérdidas reales. Simulación contra data en vivo es el balance correcto entre realismo y alcance acotado.
 
 ### ¿Por qué no L2 order book depth?
-Capeamos el volumen al top-of-book, que es la interpretación MÁS conservadora de "respetar liquidez del libro". Modelar profundidad L2 nos haría ejecutar trades MÁS grandes, no más respetuosos de la liquidez. L2 está en el roadmap explícitamente — su agregado tensaría la señal TOBI y refinaría el componente de slippage del cost model.
+El volumen se capea al top-of-book, que es la interpretación más conservadora de "respetar liquidez del libro". Modelar profundidad L2 llevaría a ejecutar trades MÁS grandes, no más respetuosos de la liquidez. L2 está en el roadmap explícitamente — su agregado tensaría la señal TOBI y refinaría el componente de slippage del cost model.
 
 ### ¿Por qué Binance.US y no Binance.com?
 Railway despliega en `us-west1`. `binance.com` bloquea IPs US con HTTP 451 por regulación SEC. `binance.us` es la versión US-legal con la misma API. Faro adapta automáticamente — exactamente lo que hace un operador real cuando enfrenta restricciones regionales.
 
-### ¿Cómo escalarías esto a producción?
+### ¿Cómo escalaría a producción?
 1. **Conectar posterior Bayesiano → detector** — el cost model pasa de estático a exchange-aware self-improving.
 2. **Persistencia** (`Postgres` + `TimescaleDB`) para trade history y análisis post-mortem.
 3. **Order book L2 depth** para slippage real y features TOBI más ricas.
@@ -424,10 +424,10 @@ Railway despliega en `us-west1`. `binance.com` bloquea IPs US con HTTP 451 por r
 5. **Arbitraje triangular cross-exchange** (no solo intra).
 
 ### ¿Por qué Fractional Kelly y no Kelly completo?
-Kelly completo (`f*`) maximiza el crecimiento geométrico esperado del bankroll, pero tiene varianza brutal — drawdowns intermedios del 50%+ son normales antes de converger. En la práctica los traders profesionales usan **Fractional Kelly (25–50%)** para suavizar la curva. Usamos `25%` con cap absoluto del `20%` del bankroll por trade. Hasta los primeros 10 trades válidos usamos una fracción default conservadora del `10%` para no apostar agresivo sobre estadísticas inestables.
+Kelly completo (`f*`) maximiza el crecimiento geométrico esperado del bankroll, pero tiene varianza brutal — drawdowns intermedios del 50%+ son normales antes de converger. En la práctica los traders profesionales usan **Fractional Kelly (25–50%)** para suavizar la curva. Faro usa `25%` con cap absoluto del `20%` del bankroll por trade. Hasta los primeros 10 trades válidos se usa una fracción default conservadora del `10%` para no apostar agresivo sobre estadísticas inestables.
 
-### ¿Qué hace Bayesian slippage learning si no afecta el detector?
-Demuestra el modelo. El estimator mantiene un posterior por exchange y converge al slippage real de cada uno. Si lo conectáramos al detector — y eso es lo natural en producción — el cost model dejaría de usar un estimate global de `5 bps` para usar valores diferenciados por exchange. Lo dejamos desconectado adrede para no arriesgar romper Sharpe/Kelly/TOBI a horas del envío. La UI muestra el "Δ vs estático" para que el jurado vea exactamente cuánto mejoraría el sistema.
+### ¿Qué aporta Bayesian slippage learning si no afecta al detector hoy?
+Demuestra el modelo y deja la ruta de upgrade clara. El estimator mantiene un posterior por exchange y converge al slippage real de cada uno. Conectado al detector — el siguiente paso natural en producción — el cost model dejaría de usar un estimate global de `5 bps` para usar valores diferenciados por exchange. La UI muestra el "Δ vs estático" para visibilizar exactamente cuánto mejoraría el sistema con la integración.
 
 ## Otros recursos
 
@@ -444,6 +444,6 @@ Demuestra el modelo. El estimator mantiene un posterior por exchange y converge 
 
 ---
 
-Construido para el [Coding Challenge Mexico 2026](https://www.coding-challenge-mexico.com) por [Arturo González](https://github.com/Arturo7thDev) en 48 horas.
+Construido por [Arturo González](https://github.com/Arturo7thDev) · [Coding Challenge Mexico 2026](https://www.coding-challenge-mexico.com).
 
-La premisa del reto — *"las ineficiencias del mercado están ahí afuera; tu trabajo es capturarlas antes que nadie"* — es solo la mitad de la historia. La otra mitad: la mayoría de esas ineficiencias son ilusiones. Faro es la prueba.
+*"Las ineficiencias del mercado están ahí afuera; tu trabajo es capturarlas antes que nadie."* Esa es solo la mitad de la historia. La otra mitad: la mayoría de esas ineficiencias son ilusiones. Faro es la prueba.
