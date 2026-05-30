@@ -3,6 +3,7 @@ import { startBinance } from "./exchanges/binance.js";
 import { startCoinbase } from "./exchanges/coinbase.js";
 import { startKraken } from "./exchanges/kraken.js";
 import { measureLatency } from "./exchanges/latency.js";
+import { startRestFallback } from "./exchanges/restPoller.js";
 import {
   PAIRS,
   type ExchangeName,
@@ -288,6 +289,10 @@ function onTicker(t: Ticker): void {
 startBinance(onTicker);
 startCoinbase(onTicker);
 startKraken(onTicker);
+
+// REST polling fallback: ETH/BTC en Coinbase y Kraken (pares ilíquidos
+// donde el WS pushea esporádicamente). Cada 5s mantiene el ticker fresco.
+startRestFallback(onTicker);
 
 pingAllExchanges();
 setInterval(pingAllExchanges, LATENCY_PING_INTERVAL_MS);
