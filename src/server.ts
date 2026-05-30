@@ -9,6 +9,7 @@ import { PAIRS } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
 import type { NaiveBot } from "./wallet/naive.js";
 import type {
+  BayesianSlippageMetrics,
   Decision,
   ExchangeStats,
   ScanCounters,
@@ -56,6 +57,7 @@ export interface ServerState {
   getEvalLatencyBuffer: () => number[];
   getOpportunityLifetimes: () => number[];
   getTobiCalibration: () => TobiCalibration;
+  getBayesianSlippage: () => BayesianSlippageMetrics;
 }
 
 function snapshot(state: ServerState) {
@@ -85,6 +87,7 @@ function snapshot(state: ServerState) {
     state.getEvalLatencyBuffer(),
     state.getOpportunityLifetimes(),
     state.getTobiCalibration(),
+    state.getBayesianSlippage(),
   );
 
   return {

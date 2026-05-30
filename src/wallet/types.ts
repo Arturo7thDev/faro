@@ -87,6 +87,22 @@ export interface RiskMetrics {
   exposureByExchange: ExchangeExposure[];
 }
 
+export interface SlippagePosterior {
+  mean: number; // posterior mean en bps
+  variance: number; // posterior variance
+  samples: number;
+}
+
+export interface BayesianSlippageMetrics {
+  binance: SlippagePosterior;
+  coinbase: SlippagePosterior;
+  kraken: SlippagePosterior;
+  // El estimate hardcoded que el detector usa hoy (5 bps).
+  // Comparar contra los posteriors muestra el "delta de precisión"
+  // que ganaríamos conectando el estimator al detector.
+  staticEstimateBps: number;
+}
+
 export interface KellyMetrics {
   // f* sin cap. Negativo = esperanza negativa, NO apostar
   fullKelly: number;
@@ -146,6 +162,7 @@ export interface PortfolioStats {
   fintech: FintechMetrics;
   tobi: TobiCalibration;
   kelly: KellyMetrics;
+  bayesian: BayesianSlippageMetrics;
 }
 
 export interface Decision {

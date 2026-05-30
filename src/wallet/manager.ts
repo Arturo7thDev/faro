@@ -14,6 +14,7 @@ import { computeReturnMetrics, percentile } from "./fintech.js";
 import { computeKellyFromTrades, type KellyResult } from "./kelly.js";
 import type {
   Balance,
+  BayesianSlippageMetrics,
   ExchangeExposure,
   ExecutedTrade,
   ExecutedTriangularTrade,
@@ -285,6 +286,12 @@ export class WalletManager {
       hitRateMedium: 0,
       hitRateLow: 0,
     },
+    bayesianSlippage: BayesianSlippageMetrics = {
+      binance: { mean: 5, variance: 100, samples: 0 },
+      coinbase: { mean: 5, variance: 100, samples: 0 },
+      kraken: { mean: 5, variance: 100, samples: 0 },
+      staticEstimateBps: 5,
+    },
   ): PortfolioStats {
     const totalArbitrageProfit = this.trades.reduce(
       (sum, t) => sum + t.netProfit,
@@ -448,6 +455,7 @@ export class WalletManager {
       fintech,
       tobi: tobiCalibration,
       kelly,
+      bayesian: bayesianSlippage,
     };
   }
 

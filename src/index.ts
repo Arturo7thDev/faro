@@ -18,9 +18,15 @@ import {
   detectAllTriangular,
   type TriangularOpportunity,
 } from "./arbitrage/triangular.js";
+import {
+  createInitialPriors,
+  recordObservation,
+  sampleObservation,
+} from "./wallet/bayesian.js";
 import { WalletManager } from "./wallet/manager.js";
 import { NaiveBot } from "./wallet/naive.js";
 import type {
+  BayesianSlippageMetrics,
   Decision,
   ExchangeStats,
   ScanCounters,
@@ -67,6 +73,11 @@ const tobiCalibration = {
   survivedLow: 0,
 };
 
+// Bayesian slippage estimator — aprende posterior por exchange a partir
+// de observaciones simuladas. Independiente del detector (no afecta el
+// netProfit hoy); demuestra el modelo de aprendizaje online en vivo.
+const bayesianSlippage = createInitialPriors();
+
 const tickersByPair = new Map<Pair, Map<ExchangeName, Ticker>>();
 for (const p of PAIRS) tickersByPair.set(p, new Map());
 
@@ -105,6 +116,15 @@ const routeFirstProfitableAt = new Map<
   { ts: number; bucket: SurvivalBucket }
 >();
 
+function buildBayesianMetrics(): BayesianSlippageMetrics {
+  return {
+    binance: { ...bayesianSlippage.binance },
+    coinbase: { ...bayesianSlippage.coinbase },
+    kraken: { ...bayesianSlippage.kraken },
+    staticEstimateBps: bayesianSlippage.staticEstimateBps,
+  };
+}
+
 function buildTobiCalibration(): TobiCalibration {
   const rate = (s: number, d: number) => (d > 0 ? s / d : 0);
   return {
@@ -137,6 +157,7 @@ const state: ServerState = {
   getEvalLatencyBuffer: () => evalLatencyBuffer,
   getOpportunityLifetimes: () => opportunityLifetimes,
   getTobiCalibration: buildTobiCalibration,
+  getBayesianSlippage: buildBayesianMetrics,
 };
 
 function execKey(pair: Pair, buy: ExchangeName, sell: ExchangeName): string {
@@ -416,6 +437,18 @@ function onTicker(t: Ticker): void {
                   `[LINEAR ${trade.pair}] ${trade.buyExchange} → ${trade.sellExchange} | ` +
                     `vol ${trade.executedVolume.toFixed(6)} | ` +
                     `NET +$${trade.netProfit.toFixed(2)}`,
+                );
+                // Cada trade alimenta el estimator Bayesiano del slippage por
+                // exchange — una observación simulada por cada pata del trade.
+                recordObservation(
+                  bayesianSlippage,
+                  best.buyExchange,
+                  sampleObservation(best.buyExchange),
+                );
+                recordObservation(
+                  bayesianSlippage,
+                  best.sellExchange,
+                  sampleObservation(best.sellExchange),
                 );
               }
             }
