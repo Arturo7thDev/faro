@@ -95,97 +95,7 @@ Variantes para distintas audiencias:
 
 ---
 
-## 5. Guión del demo (Loom 60-90s)
-
-### Setup técnico
-
-- Grabá en pantalla completa, browser en https://faro-bot-ivory.vercel.app
-- Audio claro, hablá despacio
-- No leas el guión — internalizalo, hablalo natural
-
-### Guión (versión 90s con las 6 capas)
-
-> **(0:00 - 0:08) HOOK**
->
-> "La mayoría de bots de arbitraje cripto mienten. Te muestran un spread de catorce dólares entre Binance y Kraken y dicen 'ganaste plata' — sin restar los doscientos noventa dólares de fees que se la comieron."
->
-> *Pantalla: dashboard, scroll lento al hero.*
-
-> **(0:08 - 0:20) LA REVELACIÓN VISUAL**
->
-> "Esto es Faro. Faro es honesto. Mirá estos cinco números."
->
-> *Zoom al hero stats. Cursor apuntando.*
->
-> "Faro gana $X reales. Los mismos trades a fees retail hubieran perdido $Y. Casi Z veces de diferencia, en el mismo camino de ejecución."
-
-> **(0:20 - 0:32) DESGLOSE DE COSTOS**
->
-> *Scroll a "Desglose completo de costos".*
->
-> "Y acá está el cómo. Cuatro componentes: fees de trading, retiro amortizado, slippage estimado, latencia de red. La mayoría de bots solo cuentan el primero. Faro modela los cuatro."
-
-> **(0:32 - 0:45) MÉTRICAS FINTECH PROFESIONALES**
->
-> *Scroll a "Métricas fintech profesionales".*
->
-> "Pero modelar costos es la mitad. Acá está la otra: las métricas que el jurado fintech reconoce como estándar de industria. Sharpe ratio, Sortino, Profit Factor, Win Rate. Más latencias de procesamiento percentiles: p50, p95, p99 — sub-dos-milisegundos en el peor uno por ciento."
-
-> **(0:45 - 1:00) TOBI · LA SEÑAL PREDICTIVA**
->
-> *Scroll a "TOBI · Top of Book Imbalance".*
->
-> "Y todavía hay más. Para cada oportunidad detectada, Faro calcula una probabilidad de supervivencia basada en el desbalance del orderbook. Si el modelo predice que la oportunidad va a morir antes de capturarse, el bot NO la persigue. Acá está la calibración en vivo: las clasificadas como alta supervivencia viven más que las de baja. Prueba científica con datos en producción, sin papers."
-
-> **(1:00 - 1:15) KELLY + BAYESIAN**
->
-> *Scroll a "Kelly Criterion" y luego a "Bayesian slippage learning".*
->
-> "Cada trade se sizea con Kelly Criterion: matemáticamente óptimo según la edge observada. Y un estimador Bayesiano aprende online el slippage real por exchange — el posterior converge en vivo, alimentaría el cost model en producción."
-
-> **(1:15 - 1:25) CIERRE**
->
-> *Volver al hero.*
->
-> "Seis capas de inteligencia cuantitativa. Noventa y siete tests. Sub-dos-milisegundos por decisión. Los bots de hackathon hacen una capa. Faro hace seis. Esto no es un bot de hackathon — esto es lo que hace un sistema profesional."
-
-### Guión alternativo (versión corta 60s)
-
-Si el tiempo aprieta, comprimí así:
-
-> **(0:00 - 0:10)** Hook — los bots mienten, $14 spread pero −$290 después de fees.
-> **(0:10 - 0:25)** Hero — Faro $X vs retail −$Y, diferencia visible.
-> **(0:25 - 0:40)** Desglose costos + métricas fintech (p99 latency, Sharpe).
-> **(0:40 - 0:55)** TOBI + Kelly + Bayesian — "tres capas más que el bot de hackathon promedio no tiene: predicción de supervivencia, sizing científico, learning online".
-> **(0:55 - 1:00)** Cierre — "seis capas. noventa y siete tests. esto es profesional".
-
----
-
-## 6. Estructura del README para submission
-
-El README en la raíz del repo está estructurado así (no romper sin razón):
-
-1. Título + tagline + links live
-2. El problema (sin tecnicismos, vendido)
-3. Lo que ve el jurado en 30 segundos (los 4 números hero)
-4. Arquitectura visual (SVG embebido)
-5. Feature matrix vs requisitos del reto
-6. Cobertura de criterios de evaluación
-7. Decisiones técnicas con WHY
-8. Features de robustez
-9. Strategy intelligence
-10. Triangular detection (cómo funciona)
-11. Stack
-12. API + payload schema
-13. Tests
-14. Run locally
-15. What I did NOT implement (cortes deliberados)
-16. Roadmap
-17. Cierre emocional
-
----
-
-## 7. Anticipá las preguntas del jurado
+## 5. Anticipá las preguntas del jurado
 
 ### "¿Por qué no probaste en exchanges reales?"
 La consigna del reto dice "simulación". Hacerlo real necesita API keys con permisos de trading, KYC, capital inicial real, y la responsabilidad de pérdidas reales. Para 48h de hackathon, simulación con data en vivo era el balance correcto entre realismo y alcance.
@@ -228,6 +138,6 @@ Pocas — el bot lleva runtime corto post-deploy y opera en mercados donde fees 
 
 ---
 
-## 8. Mensaje final si se pregunta "¿por qué este proyecto?"
+## 6. Mensaje final si se pregunta "¿por qué este proyecto?"
 
 > "El Coding Challenge Mexico nos pidió un bot de arbitraje BTC. Yo no quería entregar otro bot que repite la mentira que ya inunda el mercado cripto. Entregué uno que muestra la verdad, incluso cuando la verdad es incómoda — y especialmente cuando lo es. Esa honestidad es el producto."

@@ -21,15 +21,8 @@
 
 ## Lo que falta para cerrar el submit
 
-1. **Screenshots permanentes** (no carpetas temporales). Guardar en `docs/screenshots/`:
-   - `hero.png` — Top del dashboard: pill live + tagline "Arbitraje cripto **honesto.**" + ticker card BTC/ETH a la derecha
-   - `costs.png` — Sección "Desglose completo de costos" con las 5 cards
-   - `trades.png` — Tabla "Trades ejecutados" mostrando columnas Neto Faro vs Neto en retail
-   - `triangular.png` — Sección "Arbitraje triangular" con métricas + tabla de ciclos
-   - `strategy.png` — Sección "Estrategia" + "Decisiones del bot" + "Métricas de riesgo"
-   - `equity.png` — Curva de equity en vivo
-2. **Demo video Loom 60-90s** (guión en `docs/PRODUCT.md`)
-3. **Submit** en `coding-challenge-mexico.com` → sección "Mi Cuenta" → URL del repo `github.com/Arturo7thDev/faro`
+1. **Submit** en `coding-challenge-mexico.com` → sección "Mi Cuenta" → URL del repo `github.com/Arturo7thDev/faro`
+2. (Lunes post-submit) Pausar el servicio en Railway para no seguir consumiendo crédito
 
 ---
 
@@ -197,14 +190,13 @@ Si abrís una sesión nueva (incluso después de `/clear`), seguí estos pasos:
 2. Leé este archivo (`docs/HANDOFF.md`) — está pensado para esto.
 3. Leé `README.md` para entender el proyecto técnicamente.
 4. Si vas a hacer cambios: leé `docs/ARCHITECTURE.md` para el deep technical.
-5. Si vas a defenderlo al jurado o grabar demo: leé `docs/PRODUCT.md` para el storytelling.
+5. Si vas a defenderlo al jurado: leé `docs/PRODUCT.md` para el storytelling y las preguntas anticipadas.
 
 ### Tareas pendientes (si pasaste por acá sin completar el submit)
 
-- [ ] Capturar 5-6 screenshots permanentes
-- [ ] Grabar demo Loom 60-90s con el guión de `docs/PRODUCT.md`
 - [ ] Submit del repo en `coding-challenge-mexico.com`
-- [ ] (Opcional post-submit) Resolver Binance.US ETHBTC sparse push — pair existe y comercia, pero el WS push es esporádico
+- [ ] (Lunes post-submit) Pausar Railway para no seguir consumiendo crédito
+- [ ] (Opcional futuro) Resolver Binance.US ETHBTC sparse push — pair existe y comercia, pero el WS push es esporádico
 
 ---
 
