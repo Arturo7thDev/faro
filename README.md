@@ -2,7 +2,19 @@
 
 > Detección en tiempo real de arbitraje **lineal Y triangular** entre 3 exchanges (Binance.US, Coinbase, Kraken) y 3 pares (BTC/USDT + ETH/USDT + ETH/BTC), con una **arquitectura de decisión cuantitativa de 6 capas**: ingestión de orderbooks → modelo de costos honesto de 4 niveles → métricas fintech estándar de industria → filtro predictivo TOBI → sizing con Kelly Criterion → aprendizaje Bayesiano online. El bot que ejecuta **únicamente** lo que sobrevive el pipeline completo — y te muestra lo que un trader retail habría perdido en los mismos trades.
 
-🚀 **[Demo en vivo](https://faro-bot-ivory.vercel.app)** · 📡 **[API del backend](https://faro-production-9be0.up.railway.app/state)** · 🖥️ **[Repo del frontend](https://github.com/Arturo7thDev/practice-app)**
+<br />
+
+<p align="center">
+  <a href="https://faro-bot-ivory.vercel.app">
+    <img alt="Abrir demo en vivo de Faro" src="https://img.shields.io/badge/%F0%9F%9A%80%20%20VER%20EL%20DEMO%20EN%20VIVO-faro--bot--ivory.vercel.app-10b981?style=for-the-badge&logoColor=white&labelColor=064e3b" />
+  </a>
+</p>
+
+<p align="center">
+  <strong>👉 El bot está corriendo 24/7 en producción. Haz clic en el botón y míralo trabajar en tiempo real. 👈</strong>
+</p>
+
+<br />
 
 ---
 
@@ -325,6 +337,19 @@ Para correr el frontend apuntando a tu backend local, ve al [repo del dashboard]
 - **Optimizador de costo de withdrawal** (cuándo rebalancear vs dejar que el imbalance corra)
 - **Kelly multi-asset** (sizing cross-correlation aware entre oportunidades simultáneas de BTC/ETH)
 - **Dashboard de VaR + CVaR** junto al drawdown
+
+## Otros recursos
+
+- 📡 **API en vivo del backend** — [`/state`](https://faro-production-9be0.up.railway.app/state) (snapshot JSON) · [`/stream`](https://faro-production-9be0.up.railway.app/stream) (SSE) · [`/health`](https://faro-production-9be0.up.railway.app/health)
+- 🖥️ **Repo del frontend** — [github.com/Arturo7thDev/practice-app](https://github.com/Arturo7thDev/practice-app)
+
+---
+
+<p align="center">
+  <a href="https://faro-bot-ivory.vercel.app">
+    <img alt="Abrir demo en vivo de Faro" src="https://img.shields.io/badge/%F0%9F%9A%80%20%20VER%20EL%20DEMO%20EN%20VIVO-faro--bot--ivory.vercel.app-10b981?style=for-the-badge&logoColor=white&labelColor=064e3b" />
+  </a>
+</p>
 
 ---
 
