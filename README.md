@@ -63,6 +63,12 @@ Esa diferencia dramática entre la ganancia de Faro y la pérdida de retail sobr
 ![Tabla de oportunidades con badges TOBI por fila](docs/screenshots/08-opportunities-table.png)
 *Tabla de oportunidades: cada fila incluye su badge TOBI con probabilidad de supervivencia — todo auditable, nada oculto.*
 
+![Radar Scanner: instrumento marino con sweep rotando y nodos de los 3 exchanges](docs/screenshots/09-radar-scanner.png)
+*Radar Scanner: el faro como instrumento de navegación. Sweep rotando, sonar pulsando, nodos fijos de los 3 exchanges en posiciones cardinales, y lecturas instrumentales del throughput en tiempo real.*
+
+![Curva de equity Faro vs Naive divergiendo](docs/screenshots/10-equity-curve.png)
+*Curva de equity dual: Faro en naranja Bitcoin (sólida) vs Naive Retail Bot en rojo (punteada) sobre los mismos datos. La divergencia es el kill shot visual del producto.*
+
 ## Arquitectura
 
 ![Diagrama de arquitectura de Faro](docs/architecture.svg)
