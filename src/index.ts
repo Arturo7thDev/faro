@@ -232,7 +232,7 @@ function onTicker(t: Ticker): void {
           recordDecision(
             best,
             "suspicious",
-            "spread > 2% — likely stale or fat finger",
+            "spread > 2% — probable data vieja o fat finger",
           );
         } else {
           const now = Date.now();
@@ -240,14 +240,14 @@ function onTicker(t: Ticker): void {
           const sellTicker = pairTickers.get(best.sellExchange);
           if (isTickerStale(buyTicker, now) || isTickerStale(sellTicker, now)) {
             counters.skippedStaleData++;
-            recordDecision(best, "stale", "ticker > 60s old");
+            recordDecision(best, "stale", "ticker con más de 60s de antigüedad");
           } else {
             const key = execKey(best.pair, best.buyExchange, best.sellExchange);
             const lastExec = lastExecutionByKey.get(key) ?? 0;
             if (now - lastExec < EXECUTION_COOLDOWN_MS) {
               counters.skippedCooldown++;
               counters.lostOpportunityUSD += best.netProfit;
-              recordDecision(best, "cooldown", "same route < 3s ago");
+              recordDecision(best, "cooldown", "misma ruta ejecutada hace menos de 3s");
             } else {
               const executableVolume = wallet.maxExecutableVolume(best);
               if (executableVolume <= 0) {
@@ -255,7 +255,7 @@ function onTicker(t: Ticker): void {
                 recordDecision(
                   best,
                   "insufficient_capital",
-                  "wallet exhausted",
+                  "wallet sin capital disponible",
                 );
               } else {
                 const trade = wallet.executeTrade(best, executableVolume);
@@ -263,7 +263,7 @@ function onTicker(t: Ticker): void {
                 recordDecision(
                   best,
                   "executed",
-                  `vol ${trade.executedVolume.toFixed(6)} · net +$${trade.netProfit.toFixed(2)}`,
+                  `vol ${trade.executedVolume.toFixed(6)} · neto +$${trade.netProfit.toFixed(2)}`,
                 );
                 console.log(
                   `[LINEAR ${trade.pair}] ${trade.buyExchange} → ${trade.sellExchange} | ` +
