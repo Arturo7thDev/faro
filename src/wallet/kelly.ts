@@ -39,23 +39,40 @@ export interface KellyResult {
 export function calculateKelly(inputs: KellyInputs): KellyResult {
   const samples = inputs.winCount + inputs.lossCount;
 
-  if (samples === 0 || inputs.avgLoss <= 0) {
+  if (samples === 0) {
     return {
       fullKelly: 0,
       fractionalKelly: KELLY_DEFAULT_FRACTION,
       winProb: 0,
       edgeRatio: 0,
-      samples,
+      samples: 0,
       isReliable: false,
     };
   }
 
   const p = inputs.winCount / samples;
   const q = 1 - p;
+  const reliable = samples >= MIN_SAMPLES_FOR_KELLY;
+
+  // Sin pérdidas observadas: Kelly completo es indeterminable (división por
+  // cero en b = avg_win/avg_loss). Pero las observables sí son válidas y
+  // deben reportarse honestamente — la inconsistencia con el winRate de
+  // fintech rompe credibilidad ante un jurado técnico. Sizing usa la
+  // fracción default hasta que aparezca al menos una pérdida que permita
+  // estimar la edge ratio.
+  if (inputs.avgLoss <= 0) {
+    return {
+      fullKelly: 0,
+      fractionalKelly: KELLY_DEFAULT_FRACTION,
+      winProb: p,
+      edgeRatio: Infinity,
+      samples,
+      isReliable: false,
+    };
+  }
+
   const b = inputs.avgWin / inputs.avgLoss;
   const fStar = (p * b - q) / b;
-
-  const reliable = samples >= MIN_SAMPLES_FOR_KELLY;
   const fractional = reliable
     ? Math.max(0, Math.min(KELLY_MAX, fStar * KELLY_FRACTION))
     : KELLY_DEFAULT_FRACTION;

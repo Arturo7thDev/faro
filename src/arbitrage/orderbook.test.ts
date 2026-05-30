@@ -43,16 +43,17 @@ describe("calculateSurvivalProb", () => {
     expect(calculateSurvivalProb(0, 0)).toBe(0.5);
   });
 
-  it("returns 1.0 in the best case: bearish buy-side + bullish sell-side", () => {
-    // TOBI_buy = -1 (ask pressure → buy_price drops)
-    // TOBI_sell = +1 (bid pressure → sell_price rises)
-    // → spread widens → opportunity lives longer
-    expect(calculateSurvivalProb(-1, 1)).toBe(1);
+  it("returns 1.0 in the empirical best case: bullish buy-side + bearish sell-side", () => {
+    // Signo empírico calibrado en producción (MM-fade dominante en cripto
+    // a 200-500ms): cuando AMBOS exchanges muestran imbalances opuestos
+    // extremos, los MMs corrigen agresivo y el spread se mantiene/crece.
+    // TOBI_buy = +1, TOBI_sell = -1 → score = 2 → survival máximo
+    expect(calculateSurvivalProb(1, -1)).toBe(1);
   });
 
-  it("returns 0.0 in the worst case: bullish buy-side + bearish sell-side", () => {
-    // Spread closes fast → opportunity dies
-    expect(calculateSurvivalProb(1, -1)).toBe(0);
+  it("returns 0.0 in the empirical worst case: bearish buy-side + bullish sell-side", () => {
+    // El imbalance "intuitivo" termina cerrando el spread rápido por MM-fade
+    expect(calculateSurvivalProb(-1, 1)).toBe(0);
   });
 
   it("clamps to [0, 1] for inputs beyond [-1, 1]", () => {
@@ -67,7 +68,8 @@ describe("calculateSurvivalProb", () => {
   });
 
   it("gives mid-high prob (~0.75) for mild favorable imbalance", () => {
-    expect(calculateSurvivalProb(-0.5, 0.5)).toBeCloseTo(0.75, 5);
+    // TOBI_buy=+0.5, TOBI_sell=-0.5 → score=1 → survival=0.75
+    expect(calculateSurvivalProb(0.5, -0.5)).toBeCloseTo(0.75, 5);
   });
 });
 

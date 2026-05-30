@@ -63,7 +63,12 @@ const counters: ScanCounters = {
 // TOBI calibration: trackeamos cuántas oportunidades entraron en cada bucket
 // (al volverse rentables) y cuántas sobrevivieron más de N ms antes de morir.
 // El hit rate por bucket valida (o refuta) la señal en vivo.
-const TOBI_SURVIVAL_THRESHOLD_MS = 1000;
+//
+// Threshold calibrado empíricamente: con avg lifetime 2.5s y p95 9s, la
+// distribución es long-tail y la mediana cae en ~300-500ms. Un threshold
+// de 1000ms quedaba en zona donde la mayoría no sobrevivía → poca varianza
+// para discriminar. Bajado a 500ms para tener signal-to-noise útil.
+const TOBI_SURVIVAL_THRESHOLD_MS = 500;
 const tobiCalibration = {
   detectedHigh: 0,
   detectedMedium: 0,

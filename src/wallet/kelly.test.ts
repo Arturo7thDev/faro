@@ -34,15 +34,22 @@ describe("calculateKelly", () => {
     expect(r.edgeRatio).toBe(2);
   });
 
-  it("returns 0 if avgLoss is 0 (no losses observed yet, division undefined)", () => {
+  it("reports observables honestly when no losses yet, sizing uses default fraction", () => {
+    // Sin pérdidas, Kelly completo es indeterminable (división por cero).
+    // Pero winProb y samples sí son observables válidas y deben reportarse,
+    // sino aparecen inconsistencias con winRate de las métricas fintech.
     const r = calculateKelly({
       winCount: 100,
       lossCount: 0,
       avgWin: 10,
       avgLoss: 0,
     });
-    expect(r.fullKelly).toBe(0);
+    expect(r.winProb).toBe(1);
+    expect(r.samples).toBe(100);
+    expect(r.edgeRatio).toBe(Infinity);
+    expect(r.fullKelly).toBe(0); // placeholder — indeterminable
     expect(r.fractionalKelly).toBe(KELLY_DEFAULT_FRACTION);
+    expect(r.isReliable).toBe(false); // no reliable hasta tener una pérdida
   });
 
   it("computes raw Kelly correctly for known inputs", () => {
