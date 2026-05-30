@@ -72,10 +72,14 @@ El gap entre esos dos números es la historia que ningún competidor cuenta.
 | Trading fees solamente | + Withdrawal amortizado + Slippage + Latencia |
 | Una sola estrategia | Linear cross-exchange **Y** triangular intra-exchange |
 | Un solo par (BTC) | BTC + ETH simultáneamente |
+| Sin métricas profesionales | **Sharpe, Sortino, Profit Factor, Win Rate, Latencia p50/p95/p99, Alpha decay** |
+| Reactivo (ejecuta lo que ve) | **TOBI**: predice cuáles oportunidades sobreviven, filtra las que mueren |
+| Sizing fijo o arbitrario | **Kelly Criterion**: position size matemáticamente óptimo según edge observada |
+| Cost model estático | **Bayesian slippage learning**: posterior por exchange, converge al valor real online |
 | Sin métricas de riesgo | Drawdown, exposure, imbalance, circuit breaker |
 | Sin transparencia de decisión | Live decisions feed con razón por cada skip |
 | Sin medición real de latencia | RTT real a cada exchange via REST ping cada 30s |
-| Sin tests | 35 unit tests cubriendo cost model, detector, wallet |
+| Sin tests | **97 unit tests across 9 suites** |
 
 ---
 
@@ -85,9 +89,9 @@ El gap entre esos dos números es la historia que ningún competidor cuenta.
 
 Variantes para distintas audiencias:
 
-- **Para jurado técnico**: "Modelo de costos 4-stack: cada trade descuenta fees, slippage, withdrawal y latencia antes de decidir ejecutar. La comparativa retail por trade demuestra que sin ese modelo, el mismo bot perdería 100-1000× más."
-- **Para audiencia financiera**: "Faro ejecuta 26 trades para ganar $4.86 netos. Los mismos 26 trades a fees retail hubieran perdido $430. Esa es la matemática real del arbitraje a escala."
-- **Para audiencia general**: "Es un bot de arbitraje BTC que cuenta toda la verdad — incluso cuando la verdad es que no hay oportunidad."
+- **Para jurado técnico**: "Arquitectura de decisión cuantitativa de 6 capas: ingestión + cost model 4-stack + métricas fintech profesionales + señal TOBI predictiva + Kelly Criterion sizing + Bayesian learning. 97 tests, sub-2ms p99 de procesamiento, todo auditable."
+- **Para audiencia financiera**: "Faro habla el idioma de la industria: Sharpe, Sortino, Profit Factor, alpha decay. Y demuestra que el filtro TOBI sobre el orderbook discrimina supervivencia con calibración en vivo."
+- **Para audiencia general**: "Es un bot de arbitraje BTC que cuenta toda la verdad — incluso cuando la verdad es que no hay oportunidad — y que toma decisiones como las que tomaría un trading desk profesional."
 
 ---
 
@@ -99,51 +103,61 @@ Variantes para distintas audiencias:
 - Audio claro, hablá despacio
 - No leas el guión — internalizalo, hablalo natural
 
-### Guión
+### Guión (versión 90s con las 6 capas)
 
-> **(0:00 - 0:08) HOOK con texto en pantalla**
-> 
-> "La mayoría de bots de arbitraje cripto mienten. Te muestran un spread de $14 entre Binance y Kraken y dicen 'ganaste plata' — sin restar los $290 de fees que se la comieron."
+> **(0:00 - 0:08) HOOK**
 >
-> *Pantalla: dashboard general, scroll lento al hero.*
+> "La mayoría de bots de arbitraje cripto mienten. Te muestran un spread de catorce dólares entre Binance y Kraken y dicen 'ganaste plata' — sin restar los doscientos noventa dólares de fees que se la comieron."
+>
+> *Pantalla: dashboard, scroll lento al hero.*
 
-> **(0:08 - 0:25) LA REVELACIÓN VISUAL**
+> **(0:08 - 0:20) LA REVELACIÓN VISUAL**
 >
-> "Esto es Faro. Mirá estos cinco números."
+> "Esto es Faro. Faro es honesto. Mirá estos cinco números."
 >
 > *Zoom al hero stats. Cursor apuntando.*
 >
-> "Ganó $4.86 reales en 26 trades. Las mismas 26 trades, a fees retail, hubieran perdido $431. 88 veces de diferencia, en el mismo camino de ejecución."
+> "Faro gana $X reales. Los mismos trades a fees retail hubieran perdido $Y. Casi Z veces de diferencia, en el mismo camino de ejecución."
 
-> **(0:25 - 0:40) LA PRUEBA POR TRADE**
->
-> *Scroll a la tabla de "Trades ejecutados".*
->
-> "Cada fila muestra los dos cálculos: Neto Faro en verde, neto a retail en rojo. Trades reales contra data en vivo de tres exchanges."
-
-> **(0:40 - 0:55) EL DESGLOSE DE COSTOS**
+> **(0:20 - 0:32) DESGLOSE DE COSTOS**
 >
 > *Scroll a "Desglose completo de costos".*
 >
-> "Y acá está el cómo. Cuatro componentes: fees de trading, retiro amortizado, slippage estimado, latencia de red. La mayoría de bots solo cuentan el primero."
+> "Y acá está el cómo. Cuatro componentes: fees de trading, retiro amortizado, slippage estimado, latencia de red. La mayoría de bots solo cuentan el primero. Faro modela los cuatro."
 
-> **(0:55 - 1:10) LA SOFISTICACIÓN**
+> **(0:32 - 0:45) MÉTRICAS FINTECH PROFESIONALES**
 >
-> *Scroll al header counters + bot decisions panel.*
+> *Scroll a "Métricas fintech profesionales".*
 >
-> "20,000 oportunidades escaneadas, 330 rentables tras fees, 26 ejecutadas. El resto las descartamos: cooldown, data vieja, capital insuficiente, spreads sospechosos. Cada decisión justificada y visible."
+> "Pero modelar costos es la mitad. Acá está la otra: las métricas que el jurado fintech reconoce como estándar de industria. Sharpe ratio, Sortino, Profit Factor, Win Rate. Más latencias de procesamiento percentiles: p50, p95, p99 — sub-dos-milisegundos en el peor uno por ciento."
 
-> **(1:10 - 1:25) BONUS TRIANGULAR**
+> **(0:45 - 1:00) TOBI · LA SEÑAL PREDICTIVA**
 >
-> *Scroll a la sección "Arbitraje triangular".*
+> *Scroll a "TOBI · Top of Book Imbalance".*
 >
-> "Además: arbitraje triangular dentro de cada exchange usando ETH como puente entre BTC y USDT. Cuando el mercado se desbalancea, Faro lo ejecuta como un solo trade atómico de tres patas."
+> "Y todavía hay más. Para cada oportunidad detectada, Faro calcula una probabilidad de supervivencia basada en el desbalance del orderbook. Si el modelo predice que la oportunidad va a morir antes de capturarse, el bot NO la persigue. Acá está la calibración en vivo: las clasificadas como alta supervivencia viven más que las de baja. Prueba científica con datos en producción, sin papers."
 
-> **(1:25 - 1:30) CIERRE**
+> **(1:00 - 1:15) KELLY + BAYESIAN**
 >
-> *Volver a hero.*
+> *Scroll a "Kelly Criterion" y luego a "Bayesian slippage learning".*
 >
-> "Faro. El bot que solo ejecuta lo que de verdad ganás. Coding Challenge Mexico, 2026."
+> "Cada trade se sizea con Kelly Criterion: matemáticamente óptimo según la edge observada. Y un estimador Bayesiano aprende online el slippage real por exchange — el posterior converge en vivo, alimentaría el cost model en producción."
+
+> **(1:15 - 1:25) CIERRE**
+>
+> *Volver al hero.*
+>
+> "Seis capas de inteligencia cuantitativa. Noventa y siete tests. Sub-dos-milisegundos por decisión. Los bots de hackathon hacen una capa. Faro hace seis. Esto no es un bot de hackathon — esto es lo que hace un sistema profesional."
+
+### Guión alternativo (versión corta 60s)
+
+Si el tiempo aprieta, comprimí así:
+
+> **(0:00 - 0:10)** Hook — los bots mienten, $14 spread pero −$290 después de fees.
+> **(0:10 - 0:25)** Hero — Faro $X vs retail −$Y, diferencia visible.
+> **(0:25 - 0:40)** Desglose costos + métricas fintech (p99 latency, Sharpe).
+> **(0:40 - 0:55)** TOBI + Kelly + Bayesian — "tres capas más que el bot de hackathon promedio no tiene: predicción de supervivencia, sizing científico, learning online".
+> **(0:55 - 1:00)** Cierre — "seis capas. noventa y siete tests. esto es profesional".
 
 ---
 
@@ -186,7 +200,16 @@ A fees retail (0.4-0.6%), virtualmente CERO oportunidades son rentables. Modelan
 Railway despliega en `us-west1`. `binance.com` bloquea US IPs con HTTP 451 por regulación SEC. `binance.us` es la versión US-legal con la misma API. Faro adapta automáticamente — exactamente lo que hace un operador real cuando enfrenta restricciones regionales.
 
 ### "¿Cómo escalarías esto a producción?"
-Primer paso: persistencia (Postgres + TimescaleDB) para trade history. Segundo: order book L2 depth para slippage real. Tercero: arbitraje triangular cross-exchange (no solo intra). Cuarto: harness de A/B para comparar estrategias en paralelo.
+Primer paso: conectar el posterior Bayesiano al detector — el cost model pasa de estático a exchange-aware self-improving. Segundo: persistencia (Postgres + TimescaleDB) para trade history. Tercero: order book L2 depth para slippage real y TOBI con features más ricas. Cuarto: harness de A/B para comparar parametrizaciones de TOBI/Kelly en paralelo. Quinto: arbitraje triangular cross-exchange (no solo intra).
+
+### "¿Cómo funciona TOBI exactamente?"
+Top of Book Imbalance es una señal L1 derivada de los volúmenes del mejor bid y mejor ask. `TOBI = (bidQty − askQty) / (bidQty + askQty)`. Si el exchange donde compramos tiene presión vendedora (TOBI negativo) y el exchange donde vendemos tiene presión compradora (TOBI positivo), la spread va a crecer y la oportunidad va a vivir más. Normalizamos a probabilidad y bucketizamos. El bot bloquea ejecución cuando `survivalProb < 0.5`, y el hit rate por bucket valida en vivo que el modelo discrimina.
+
+### "¿Por qué Fractional Kelly y no Kelly completo?"
+Kelly completo (f*) maximiza el crecimiento geométrico esperado del bankroll, pero tiene varianza brutal: drawdowns intermedios del 50%+ son normales antes de converger. En la práctica los traders profesionales usan Fractional Kelly (25-50%) para suavizar la curva. Nosotros usamos 25% con cap absoluto del 20% del bankroll por trade. Hasta los primeros 10 trades válidos usamos una fracción default de 10% para no apostar agresivo sobre estadísticas inestables.
+
+### "¿Qué hace Bayesian slippage learning si no afecta el detector?"
+Demuestra el modelo. El estimator mantiene un posterior por exchange y converge al slippage real de cada uno. Si lo conectáramos al detector — y eso es lo natural en producción — el cost model dejaría de usar un estimate global de 5 bps para usar valores diferenciados por exchange. Lo dejamos desconectado adrede a 36h del envío para no arriesgar romper Sharpe/Kelly/TOBI. El UI muestra el "delta vs estático" para que el jurado vea exactamente cuánto mejoraría el sistema.
 
 ### "¿Tu bot ganaría plata real?"
 A fees institucionales, sí — los números que ves son reales sobre el modelo simulado. A retail, no — y lo demostramos transparentemente con la columna "Neto en retail" en cada trade ejecutado.

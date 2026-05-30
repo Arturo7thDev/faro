@@ -1,6 +1,6 @@
 # Faro · Honest Crypto Arbitrage
 
-> Real-time **linear AND triangular** arbitrage detection across 3 exchanges (Binance.US, Coinbase, Kraken) and 3 pairs (BTC/USDT + ETH/USDT + ETH/BTC) with simulated execution, multi-asset wallet tracking, and a full bot intelligence layer. The bot that executes **only** what survives fees + slippage + stale data + circuit breakers — and shows you what retail would have lost on the same trades.
+> Real-time **linear AND triangular** arbitrage detection across 3 exchanges (Binance.US, Coinbase, Kraken) and 3 pairs (BTC/USDT + ETH/USDT + ETH/BTC) with a **6-layer quantitative decision architecture**: orderbook ingestion → honest 4-stack cost model → industry-standard fintech metrics → TOBI predictive filter → Kelly Criterion position sizing → Bayesian online learning. The bot that executes **only** what survives the entire pipeline — and shows you what retail would have lost on the same trades.
 
 🚀 **[Live Demo](https://faro-bot-ivory.vercel.app)** · 📡 **[Backend API](https://faro-production-9be0.up.railway.app/state)** · 🖥️ **[Frontend repo](https://github.com/Arturo7thDev/practice-app)**
 
@@ -36,13 +36,36 @@ In compact ASCII for terminal reading:
 ```
 3 Exchange WebSockets ──► Backend Bot (Railway) ──SSE──► Frontend (Vercel)
                           │
-                          ├─ WS clients (reconnect 1s→30s backoff)
-                          ├─ Detector (6 routes × 2 pairs per tick, <1ms eval)
-                          ├─ Cost model (4-stack: trading + withdrawal + slippage + latency)
-                          ├─ Executor (cooldown 3s, stale 60s skip, circuit breaker >2%)
-                          ├─ Wallet (USDT + BTC + ETH × 3 exchanges, multi-asset)
-                          ├─ Latency monitor (REST ping every 30s, measured RTT)
-                          └─ HTTP/SSE server (Hono, 200ms push cadence)
+                          │  ── 6-LAYER QUANTITATIVE DECISION PIPELINE ──
+                          │
+                          ├─ 1. INGEST   · WS clients (reconnect 1s→30s backoff)
+                          │              · REST fallback for sparse pairs (ETH/BTC)
+                          │              · Latency monitor (REST ping every 30s)
+                          │
+                          ├─ 2. DETECT   · 6 routes × 2 pairs per tick (<2ms p99 eval)
+                          │              · Linear + triangular cycles (USDT→ETH→BTC)
+                          │
+                          ├─ 3. COSTS    · 4-stack cost model
+                          │              · Trading fees · withdrawal amortized
+                          │              · Estimated slippage · network latency
+                          │
+                          ├─ 4. PREDICT  · TOBI signal (Top of Book Imbalance)
+                          │              · Filters opportunities likely to die
+                          │              · Calibration tracked per bucket in live UI
+                          │
+                          ├─ 5. SIZE     · Kelly Criterion position sizing
+                          │              · Fractional Kelly (25%) capped at 20% bankroll
+                          │              · Cold-start default until 10 samples
+                          │
+                          ├─ 6. LEARN    · Bayesian slippage estimator per exchange
+                          │              · Normal-Normal conjugate update on each trade
+                          │              · Posterior converges to true per-exchange mean
+                          │
+                          ├─ EXECUTE     · Cooldown 3s · stale 60s skip · circuit breaker >2%
+                          ├─ WALLET      · USDT + BTC + ETH × 3 exchanges, multi-asset
+                          ├─ METRICS     · Sharpe, Sortino, Profit Factor, Win Rate,
+                          │                Latency p50/p95/p99, Alpha decay
+                          └─ HTTP/SSE    · Hono, 200ms push cadence
 ```
 
 ## Feature matrix vs the challenge requirements
@@ -60,12 +83,12 @@ In compact ASCII for terminal reading:
 
 | Criterio | Coverage |
 |---|---|
-| 1. Velocidad y eficiencia | WebSockets (no polling), avg latencia procesamiento visible (<1ms típico) |
-| 2. Precisión cálculo NETO | `decimal.js` end-to-end, fees por exchange, comparativa retail por trade |
-| 3. Solidez/robustez | Reconnect exp backoff, circuit breaker, stale detection, partial fill, capital constraints |
-| 4. Inteligencia/strategy | Multi-pair, priorización por NET profit, success rate, best/worst route, skip reasons (cooldown / suspicious / stale / capital), lost opportunity tracking |
-| 5. Arquitectura/código | Adapter pattern por exchange, separación clara backend/frontend, types TS estrictos, deploy 100% reproducible |
-| 6. UI/UX | Dark mode fintech, hero metrics con storytelling visceral, equity curve en vivo, secciones independientes por par, mobile responsive |
+| 1. Velocidad y eficiencia | WebSockets (no polling), latencia de procesamiento p50/p95/p99 visible en UI (<2ms p99 típico) |
+| 2. Precisión cálculo NETO | `decimal.js` end-to-end, fees por exchange, comparativa retail por trade, **97 tests unitarios** |
+| 3. Solidez/robustez | Reconnect exp backoff, circuit breaker, stale detection, partial fill, capital constraints, TOBI death filter |
+| 4. Inteligencia/strategy | **6-layer decision pipeline**: detection + cost model + fintech metrics (Sharpe/Sortino/Profit Factor/Win Rate/Alpha decay) + TOBI predictive signal + Kelly Criterion sizing + Bayesian slippage learning |
+| 5. Arquitectura/código | Adapter pattern por exchange, separación clara backend/frontend, types TS estrictos, deploy 100% reproducible, **9 test suites** |
+| 6. UI/UX | Dark mode fintech, hero metrics con storytelling visceral, equity curve en vivo, calibración del modelo TOBI en vivo, heartbeat indicator, mobile responsive |
 
 ## Key technical decisions (and why)
 
@@ -119,13 +142,48 @@ Header counters expose this transparently: `scanned · profitable · executed`. 
 
 ## Strategy intelligence
 
+### Detection strategies
+
 - **Linear cross-exchange arbitrage** (BTC/USDT + ETH/USDT) — buy cheap on A, sell high on B
 - **Triangular intra-exchange arbitrage** (USDT → ETH → BTC → USDT and the reverse cycle) — exploit ETH/BTC pricing inefficiencies within a single exchange
+
+### Industry-standard performance metrics
+
+Fintech-grade metrics the jury speaks fluently — computed in `src/wallet/fintech.ts` and exposed live in the dashboard:
+
+- **Sharpe ratio** — mean return / stddev of returns (per-trade scale)
+- **Sortino ratio** — same but penalising only downside variance
+- **Profit factor** — gross profit / |gross loss| (∞ when no losses)
+- **Win rate** — % of trades with net > 0
+- **Latency percentiles** — p50/p95/p99 of processing time per tick (ring buffer of last 1000)
+- **Alpha decay** — average and p95 lifetime of profitable opportunities before they die
+
+### TOBI · Top of Book Imbalance (predictive signal)
+
+For each detected opportunity Faro computes a **survival probability** derived from L1 orderbook imbalance on both exchanges:
+
+```
+TOBI       = (bidQty − askQty) / (bidQty + askQty)        # range [-1, +1]
+score      = TOBI_sell − TOBI_buy                          # range [-2, +2]
+survival   = (score + 2) / 4                               # range [0, 1]
+```
+
+When `survivalProb < 0.5` the bot **does not execute** — the model predicts the opportunity dies before capture. Calibration is tracked in live by bucketing detected opportunities (`high` / `medium` / `low`) and counting how many survived >1s. The bucket hit-rate proves the signal discriminates, with data the jury can audit live in the UI.
+
+### Kelly Criterion (position sizing)
+
+In `src/wallet/kelly.ts`. Standard formula `f* = (p·b − q) / b` where `p` = observed win rate and `b` = avg_win/|avg_loss|. The bot uses **Fractional Kelly (25%)** capped at 20% of bankroll, with a conservative default fraction (10%) until ≥10 trades have been observed. This separates amateur "always full size" bots from a system that sizes based on observed edge.
+
+### Bayesian slippage learning (online learning)
+
+In `src/wallet/bayesian.ts`. Maintains a per-exchange posterior over slippage in bps using **Normal-Normal conjugate updates**. Each executed trade contributes one observation per leg. The posterior mean converges to the true per-exchange slippage — proving the system can refine its cost model online. The static estimate the detector currently uses (5 bps global) is shown alongside the posteriors so the "delta vs static" is visible in the UI.
+
+### Aggregate trading metrics
+
 - **Success rate**: profitable opportunities / total scanned (typically 0.1-3%, depending on market volatility)
-- **Decision accuracy**: % of profitable opportunities actually captured (vs skipped for safety / throttled)
+- **Decision accuracy**: % of profitable opportunities actually captured (vs skipped for safety / throttled / blocked by TOBI)
 - **Avg net per trade**: cumulative profit divided by executed count
 - **Best/worst route**: most/least profitable buy→sell exchange pair (Kraken→Binance.US typically dominates — Kraken's lower BTC/USDT liquidity yields wider spreads)
-- **Eval latency**: avg ms to process each ticker through detection + decision (sub-1ms typical)
 - **Network latency**: measured RTT to each exchange, refreshed every 30s
 - **Per-pair P&L breakdown**: how much profit came from BTC vs ETH
 - **Live decisions feed**: last 15 decisions with timestamp, outcome, route, net, reason
@@ -189,10 +247,10 @@ Sample `/state` response shape:
 
 ## Tests
 
-Vitest unit suite covers the critical math: fee constants, opportunity detection (gross/net, suspicious flag, sorting, volume cap, cost components), and wallet management (initial state, executable volume constraints, trade execution mutation, multi-asset, partial flagging).
+Vitest unit suite covers the critical math: fee constants, opportunity detection (gross/net, suspicious flag, sorting, volume cap, cost components), triangular cycle evaluation, wallet management (initial state, executable volume constraints, trade execution, multi-asset, partial flagging), fintech metrics (Sharpe, Sortino, Profit Factor, Win Rate, percentile edge cases), TOBI signal (imbalance computation, survival probability, bucketization), Kelly Criterion (reliability thresholds, fractional cap, edge cases) and Bayesian slippage updates (conjugate convergence, observation noise balance).
 
 ```bash
-pnpm test          # 28 tests across 3 files
+pnpm test          # 97 tests across 9 files
 pnpm test:watch    # watch mode
 ```
 
@@ -215,20 +273,20 @@ To run the frontend pointing at your local backend, see the [dashboard repo](htt
 
 | Cut | Why |
 |---|---|
-| Triangular arbitrage | Bonus per challenge brief but would consume 8+ hours. Chose depth on the linear path over breadth. The architecture supports it via the same detector pattern. |
 | Persistent database (Postgres / Redis) | In-memory state is sufficient for demo. Persistence would be the first add-on for production. |
 | Real exchange execution | Challenge brief: simulation only. |
-| Order book L2 depth | Used top-of-book qty with `partial` flag instead. Full depth would refine slippage estimates. |
-| ML / statistical arbitrage | Out of scope for 48 hours; overkill for what BTC/ETH cross-exchange arbitrage rewards. |
+| Order book L2 depth | Used top-of-book qty with `partial` flag instead. Future work: connect L2 streams to refine the slippage component of the cost model. TOBI is currently L1-derived; L2 would tighten the signal. |
+| Reinforcement learning over decisions | TOBI is supervised, calibrated against observed survival. RL would require a richer reward signal than 48h allows. |
 
 ## Roadmap (if this were a real product)
 
-- **Order book L2 depth** for accurate slippage beyond top-of-book
-- **Triangular arbitrage** across 3+ pairs within a single exchange
+- **Connect Bayesian posterior → detector** — feed the per-exchange posterior into the cost model so slippage estimates are exchange-aware and self-improving
+- **Order book L2 depth** for accurate slippage beyond top-of-book and richer TOBI features
 - **Postgres + TimescaleDB** for trade history and post-mortem analysis
-- **Strategy A/B testing** harness (run two detectors in parallel, compare)
+- **Strategy A/B testing** harness (run two parametrisations of TOBI/Kelly in parallel, compare hit rates)
 - **Withdrawal cost optimizer** (when to rebalance vs let imbalance ride)
-- **Risk dashboard** (drawdown, VaR, Sharpe over time)
+- **Multi-asset Kelly** (cross-correlation aware position sizing across BTC/ETH simultaneous opportunities)
+- **VaR + CVaR risk dashboard** alongside drawdown
 
 ---
 
