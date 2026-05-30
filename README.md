@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://faro-bot-ivory.vercel.app">
-    <img alt="Abrir demo en vivo de Faro" src="https://img.shields.io/badge/%F0%9F%9A%80%20%20VER%20EL%20DEMO%20EN%20VIVO-faro--bot--ivory.vercel.app-10b981?style=for-the-badge&logoColor=white&labelColor=064e3b" />
+    <img alt="Abrir demo en vivo de Faro" src="https://img.shields.io/badge/%F0%9F%9A%80%20%20VER%20EL%20DEMO%20EN%20VIVO-faro--bot--ivory.vercel.app-f7931a?style=for-the-badge&logoColor=white&labelColor=0a1429" />
   </a>
 </p>
 
@@ -438,7 +438,7 @@ Demuestra el modelo y deja la ruta de upgrade clara. El estimator mantiene un po
 
 <p align="center">
   <a href="https://faro-bot-ivory.vercel.app">
-    <img alt="Abrir demo en vivo de Faro" src="https://img.shields.io/badge/%F0%9F%9A%80%20%20VER%20EL%20DEMO%20EN%20VIVO-faro--bot--ivory.vercel.app-10b981?style=for-the-badge&logoColor=white&labelColor=064e3b" />
+    <img alt="Abrir demo en vivo de Faro" src="https://img.shields.io/badge/%F0%9F%9A%80%20%20VER%20EL%20DEMO%20EN%20VIVO-faro--bot--ivory.vercel.app-f7931a?style=for-the-badge&logoColor=white&labelColor=0a1429" />
   </a>
 </p>
 
