@@ -11,6 +11,8 @@ import {
   type Ticker,
 } from "./exchanges/types.js";
 import { detectOpportunities } from "./arbitrage/detector.js";
+import { SURVIVAL_PROB_EXEC_THRESHOLD } from "./arbitrage/orderbook.js";
+import type { SurvivalBucket } from "./arbitrage/orderbook.js";
 import type { Opportunity } from "./arbitrage/types.js";
 import {
   detectAllTriangular,
@@ -22,6 +24,7 @@ import type {
   Decision,
   ExchangeStats,
   ScanCounters,
+  TobiCalibration,
 } from "./wallet/types.js";
 import { startServer, type ServerState } from "./server.js";
 
@@ -47,7 +50,21 @@ const counters: ScanCounters = {
   skippedStaleData: 0,
   skippedCooldown: 0,
   skippedInsufficientCapital: 0,
+  skippedLowSurvival: 0,
   lostOpportunityUSD: 0,
+};
+
+// TOBI calibration: trackeamos cuántas oportunidades entraron en cada bucket
+// (al volverse rentables) y cuántas sobrevivieron más de N ms antes de morir.
+// El hit rate por bucket valida (o refuta) la señal en vivo.
+const TOBI_SURVIVAL_THRESHOLD_MS = 1000;
+const tobiCalibration = {
+  detectedHigh: 0,
+  detectedMedium: 0,
+  detectedLow: 0,
+  survivedHigh: 0,
+  survivedMedium: 0,
+  survivedLow: 0,
 };
 
 const tickersByPair = new Map<Pair, Map<ExchangeName, Ticker>>();
@@ -78,11 +95,33 @@ const evalLatencyBuffer: number[] = [];
 
 // Alpha decay: trackear cuánto duran las oportunidades antes de cerrarse.
 // Para cada ruta (par + buyEx + sellEx) recordamos cuándo apareció rentable
-// por primera vez. Cuando deja de ser rentable → la oportunidad "murió" y
-// registramos su lifetime.
+// por primera vez Y en qué bucket TOBI clasificó esa aparición. Cuando deja
+// de ser rentable → la oportunidad "murió" y registramos lifetime + bucket
+// para alimentar la calibración del modelo.
 const MAX_OPP_LIFETIMES = 500;
 const opportunityLifetimes: number[] = [];
-const routeFirstProfitableAt = new Map<string, number>();
+const routeFirstProfitableAt = new Map<
+  string,
+  { ts: number; bucket: SurvivalBucket }
+>();
+
+function buildTobiCalibration(): TobiCalibration {
+  const rate = (s: number, d: number) => (d > 0 ? s / d : 0);
+  return {
+    detectedHigh: tobiCalibration.detectedHigh,
+    detectedMedium: tobiCalibration.detectedMedium,
+    detectedLow: tobiCalibration.detectedLow,
+    survivedHigh: tobiCalibration.survivedHigh,
+    survivedMedium: tobiCalibration.survivedMedium,
+    survivedLow: tobiCalibration.survivedLow,
+    hitRateHigh: rate(tobiCalibration.survivedHigh, tobiCalibration.detectedHigh),
+    hitRateMedium: rate(
+      tobiCalibration.survivedMedium,
+      tobiCalibration.detectedMedium,
+    ),
+    hitRateLow: rate(tobiCalibration.survivedLow, tobiCalibration.detectedLow),
+  };
+}
 
 const state: ServerState = {
   tickersByPair,
@@ -97,6 +136,7 @@ const state: ServerState = {
     totalEvalCount > 0 ? totalEvalTimeMs / totalEvalCount : 0,
   getEvalLatencyBuffer: () => evalLatencyBuffer,
   getOpportunityLifetimes: () => opportunityLifetimes,
+  getTobiCalibration: buildTobiCalibration,
 };
 
 function execKey(pair: Pair, buy: ExchangeName, sell: ExchangeName): string {
@@ -252,9 +292,10 @@ function onTicker(t: Ticker): void {
       counters.opportunitiesScanned += opps.length;
       counters.profitableDetected += opps.filter((o) => o.profitable).length;
 
-      // Alpha decay tracking: para cada ruta rentable, registrar cuándo
-      // apareció. Cuando una ruta previamente rentable ya NO aparece en
-      // las profitable, su oportunidad "murió" — registramos lifetime.
+      // Alpha decay + TOBI calibration: para cada ruta rentable, registrar
+      // cuándo apareció Y en qué bucket TOBI cayó. Cuando muere, sumamos al
+      // bucket de "detected" y, si lifetime > threshold, también al de
+      // "survived". El hit rate por bucket valida el modelo en vivo.
       const nowAlpha = Date.now();
       const profitableRoutes = new Set<string>();
       for (const o of opps) {
@@ -262,17 +303,32 @@ function onTicker(t: Ticker): void {
         const key = `${o.pair}:${o.buyExchange}-${o.sellExchange}`;
         profitableRoutes.add(key);
         if (!routeFirstProfitableAt.has(key)) {
-          routeFirstProfitableAt.set(key, nowAlpha);
+          routeFirstProfitableAt.set(key, {
+            ts: nowAlpha,
+            bucket: o.survivalBucket,
+          });
         }
       }
-      // Detectar rutas que estaban rentables y ya no aparecen para este par
-      for (const [key, firstAt] of routeFirstProfitableAt.entries()) {
+      for (const [key, info] of routeFirstProfitableAt.entries()) {
         if (!key.startsWith(t.pair + ":")) continue;
         if (!profitableRoutes.has(key)) {
-          const lifetime = nowAlpha - firstAt;
+          const lifetime = nowAlpha - info.ts;
           opportunityLifetimes.push(lifetime);
           if (opportunityLifetimes.length > MAX_OPP_LIFETIMES) {
             opportunityLifetimes.shift();
+          }
+          if (info.bucket === "high") {
+            tobiCalibration.detectedHigh++;
+            if (lifetime > TOBI_SURVIVAL_THRESHOLD_MS)
+              tobiCalibration.survivedHigh++;
+          } else if (info.bucket === "medium") {
+            tobiCalibration.detectedMedium++;
+            if (lifetime > TOBI_SURVIVAL_THRESHOLD_MS)
+              tobiCalibration.survivedMedium++;
+          } else {
+            tobiCalibration.detectedLow++;
+            if (lifetime > TOBI_SURVIVAL_THRESHOLD_MS)
+              tobiCalibration.survivedLow++;
           }
           routeFirstProfitableAt.delete(key);
         }
@@ -296,6 +352,16 @@ function onTicker(t: Ticker): void {
             best,
             "suspicious",
             "spread > 2% — probable data vieja o fat finger",
+          );
+        } else if (best.survivalProb < SURVIVAL_PROB_EXEC_THRESHOLD) {
+          // TOBI: la señal predice que la oportunidad muere antes de capturarse.
+          // No la perseguimos. Esta es la decisión que separa pro de retail.
+          counters.skippedLowSurvival++;
+          counters.lostOpportunityUSD += best.netProfit;
+          recordDecision(
+            best,
+            "low_survival",
+            `TOBI ${best.survivalProb.toFixed(2)} — oportunidad muriendo, no perseguir`,
           );
         } else {
           const now = Date.now();

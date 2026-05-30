@@ -35,7 +35,23 @@ export interface ScanCounters {
   skippedStaleData: number;
   skippedCooldown: number;
   skippedInsufficientCapital: number;
+  skippedLowSurvival: number; // filtradas por TOBI: prob de supervivencia bajo umbral
   lostOpportunityUSD: number;
+}
+
+export interface TobiCalibration {
+  // detected = # de rutas que entraron al bucket (al volverse rentables)
+  // survived = # de esas rutas que sobrevivieron > TOBI_SURVIVAL_THRESHOLD_MS antes de morir
+  // hitRate = survived / detected (solo si detected > 0)
+  detectedHigh: number;
+  detectedMedium: number;
+  detectedLow: number;
+  survivedHigh: number;
+  survivedMedium: number;
+  survivedLow: number;
+  hitRateHigh: number;
+  hitRateMedium: number;
+  hitRateLow: number;
 }
 
 export interface RoutePerformance {
@@ -113,6 +129,7 @@ export interface PortfolioStats {
   tradesByPair: Record<Pair, number>;
   risk: RiskMetrics;
   fintech: FintechMetrics;
+  tobi: TobiCalibration;
 }
 
 export interface Decision {
@@ -124,7 +141,8 @@ export interface Decision {
     | "stale"
     | "cooldown"
     | "suspicious"
-    | "insufficient_capital";
+    | "insufficient_capital"
+    | "low_survival";
   netProfit: number; // net que tendría/tuvo
   reason: string; // mensaje human-friendly
 }

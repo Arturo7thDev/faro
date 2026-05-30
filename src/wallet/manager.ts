@@ -21,6 +21,7 @@ import type {
   RiskMetrics,
   RoutePerformance,
   ScanCounters,
+  TobiCalibration,
 } from "./types.js";
 
 const INITIAL_USDT_PER_EXCHANGE = 50_000;
@@ -240,6 +241,17 @@ export class WalletManager {
     avgEvalLatencyMs: number,
     evalLatencyBuffer: number[] = [],
     opportunityLifetimes: number[] = [],
+    tobiCalibration: TobiCalibration = {
+      detectedHigh: 0,
+      detectedMedium: 0,
+      detectedLow: 0,
+      survivedHigh: 0,
+      survivedMedium: 0,
+      survivedLow: 0,
+      hitRateHigh: 0,
+      hitRateMedium: 0,
+      hitRateLow: 0,
+    },
   ): PortfolioStats {
     const totalArbitrageProfit = this.trades.reduce(
       (sum, t) => sum + t.netProfit,
@@ -387,6 +399,7 @@ export class WalletManager {
       tradesByPair: pairCount,
       risk,
       fintech,
+      tobi: tobiCalibration,
     };
   }
 

@@ -1,4 +1,5 @@
 import type { ExchangeName, Pair } from "../exchanges/types.js";
+import type { SurvivalBucket } from "./orderbook.js";
 
 export interface Opportunity {
   timestamp: number;
@@ -24,4 +25,9 @@ export interface Opportunity {
   suspicious: boolean;
   retailTradingFees: number;
   retailNetProfit: number;
+  // TOBI signal — Top of Book Imbalance (L1)
+  tobiBuy: number; // [-1, +1] imbalance del exchange donde compramos
+  tobiSell: number; // [-1, +1] imbalance del exchange donde vendemos
+  survivalProb: number; // [0, 1] prob de que la opp sobreviva los próximos ~200-500ms
+  survivalBucket: SurvivalBucket;
 }

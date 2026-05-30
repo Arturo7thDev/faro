@@ -8,6 +8,11 @@ import {
   N_TRADES_PER_REBALANCE,
   RETAIL_TAKER_PERCENT,
 } from "./fees.js";
+import {
+  bucketizeSurvival,
+  calculateSurvivalProb,
+  calculateTOBI,
+} from "./orderbook.js";
 import type { Opportunity } from "./types.js";
 
 const SUSPICIOUS_SPREAD_RATIO = 0.02;
@@ -90,6 +95,12 @@ function buildOpportunity(
   const spreadRatio = grossSpread.div(buyPrice).toNumber();
   const suspicious = spreadRatio > SUSPICIOUS_SPREAD_RATIO;
 
+  // TOBI signal — derivado del L1 (best bid/best ask volumes) que ya consumimos
+  const tobiBuy = calculateTOBI(buyT.bidQty, buyT.askQty);
+  const tobiSell = calculateTOBI(sellT.bidQty, sellT.askQty);
+  const survivalProb = calculateSurvivalProb(tobiBuy, tobiSell);
+  const survivalBucket = bucketizeSurvival(survivalProb);
+
   return {
     timestamp: Date.now(),
     pair,
@@ -113,5 +124,9 @@ function buildOpportunity(
     suspicious,
     retailTradingFees: retailTradingFees.toNumber(),
     retailNetProfit: retailNetProfit.toNumber(),
+    tobiBuy,
+    tobiSell,
+    survivalProb,
+    survivalBucket,
   };
 }

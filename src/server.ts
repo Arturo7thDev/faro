@@ -8,7 +8,12 @@ import type { ExchangeName, Pair, Ticker } from "./exchanges/types.js";
 import { PAIRS } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
 import type { NaiveBot } from "./wallet/naive.js";
-import type { Decision, ExchangeStats, ScanCounters } from "./wallet/types.js";
+import type {
+  Decision,
+  ExchangeStats,
+  ScanCounters,
+  TobiCalibration,
+} from "./wallet/types.js";
 
 const STALE_THRESHOLD_MS = 60_000;
 
@@ -50,6 +55,7 @@ export interface ServerState {
   getAvgEvalLatencyMs: () => number;
   getEvalLatencyBuffer: () => number[];
   getOpportunityLifetimes: () => number[];
+  getTobiCalibration: () => TobiCalibration;
 }
 
 function snapshot(state: ServerState) {
@@ -78,6 +84,7 @@ function snapshot(state: ServerState) {
     state.getAvgEvalLatencyMs(),
     state.getEvalLatencyBuffer(),
     state.getOpportunityLifetimes(),
+    state.getTobiCalibration(),
   );
 
   return {
