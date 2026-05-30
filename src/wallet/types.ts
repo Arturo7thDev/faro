@@ -71,6 +71,24 @@ export interface RiskMetrics {
   exposureByExchange: ExchangeExposure[];
 }
 
+export interface FintechMetrics {
+  // Risk-adjusted return metrics — estándar de la industria
+  sharpeRatio: number; // mean(returns) / stddev(returns), per-trade scale
+  sortinoRatio: number; // mean(returns) / stddev(negativos), penaliza solo downside
+  profitFactor: number; // gross profit / |gross loss|
+  winRate: number; // % de trades con net > 0
+
+  // Latency percentiles — métricas de HFT
+  evalLatencyP50: number; // ms
+  evalLatencyP95: number;
+  evalLatencyP99: number;
+
+  // Alpha decay — cuánto duran las oportunidades antes de cerrarse
+  avgOpportunityLifetimeMs: number;
+  p95OpportunityLifetimeMs: number;
+  totalOpportunityDeaths: number; // sample count
+}
+
 export interface PortfolioStats {
   initialCapitalUSDT: number;
   initialBTC: number;
@@ -94,6 +112,7 @@ export interface PortfolioStats {
   profitByPair: Record<Pair, number>;
   tradesByPair: Record<Pair, number>;
   risk: RiskMetrics;
+  fintech: FintechMetrics;
 }
 
 export interface Decision {

@@ -48,6 +48,8 @@ export interface ServerState {
   decisions: Decision[];
   getExchangeStats: () => ExchangeStats[];
   getAvgEvalLatencyMs: () => number;
+  getEvalLatencyBuffer: () => number[];
+  getOpportunityLifetimes: () => number[];
 }
 
 function snapshot(state: ServerState) {
@@ -74,6 +76,8 @@ function snapshot(state: ServerState) {
     state.tickersByPair,
     state.counters,
     state.getAvgEvalLatencyMs(),
+    state.getEvalLatencyBuffer(),
+    state.getOpportunityLifetimes(),
   );
 
   return {

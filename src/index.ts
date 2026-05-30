@@ -72,6 +72,18 @@ const exchangeStats = new Map<ExchangeName, RawExchangeStats>();
 let totalEvalTimeMs = 0;
 let totalEvalCount = 0;
 
+// Ring buffer de latencias para percentiles p50/p95/p99 — métricas HFT
+const EVAL_LATENCY_BUFFER_SIZE = 1000;
+const evalLatencyBuffer: number[] = [];
+
+// Alpha decay: trackear cuánto duran las oportunidades antes de cerrarse.
+// Para cada ruta (par + buyEx + sellEx) recordamos cuándo apareció rentable
+// por primera vez. Cuando deja de ser rentable → la oportunidad "murió" y
+// registramos su lifetime.
+const MAX_OPP_LIFETIMES = 500;
+const opportunityLifetimes: number[] = [];
+const routeFirstProfitableAt = new Map<string, number>();
+
 const state: ServerState = {
   tickersByPair,
   recentOpportunitiesByPair,
@@ -83,6 +95,8 @@ const state: ServerState = {
   getExchangeStats: () => buildExchangeStats(),
   getAvgEvalLatencyMs: () =>
     totalEvalCount > 0 ? totalEvalTimeMs / totalEvalCount : 0,
+  getEvalLatencyBuffer: () => evalLatencyBuffer,
+  getOpportunityLifetimes: () => opportunityLifetimes,
 };
 
 function execKey(pair: Pair, buy: ExchangeName, sell: ExchangeName): string {
@@ -238,6 +252,32 @@ function onTicker(t: Ticker): void {
       counters.opportunitiesScanned += opps.length;
       counters.profitableDetected += opps.filter((o) => o.profitable).length;
 
+      // Alpha decay tracking: para cada ruta rentable, registrar cuándo
+      // apareció. Cuando una ruta previamente rentable ya NO aparece en
+      // las profitable, su oportunidad "murió" — registramos lifetime.
+      const nowAlpha = Date.now();
+      const profitableRoutes = new Set<string>();
+      for (const o of opps) {
+        if (!o.profitable) continue;
+        const key = `${o.pair}:${o.buyExchange}-${o.sellExchange}`;
+        profitableRoutes.add(key);
+        if (!routeFirstProfitableAt.has(key)) {
+          routeFirstProfitableAt.set(key, nowAlpha);
+        }
+      }
+      // Detectar rutas que estaban rentables y ya no aparecen para este par
+      for (const [key, firstAt] of routeFirstProfitableAt.entries()) {
+        if (!key.startsWith(t.pair + ":")) continue;
+        if (!profitableRoutes.has(key)) {
+          const lifetime = nowAlpha - firstAt;
+          opportunityLifetimes.push(lifetime);
+          if (opportunityLifetimes.length > MAX_OPP_LIFETIMES) {
+            opportunityLifetimes.shift();
+          }
+          routeFirstProfitableAt.delete(key);
+        }
+      }
+
       const recent = recentOpportunitiesByPair.get(t.pair)!;
       if (opps.length > 0) {
         recent.unshift(opps[0]);
@@ -304,8 +344,13 @@ function onTicker(t: Ticker): void {
   // Triangular: cualquier ticker puede haber cambiado el cycle. Evaluar.
   evaluateTriangular(Date.now());
 
-  totalEvalTimeMs += performance.now() - evalStart;
+  const evalElapsed = performance.now() - evalStart;
+  totalEvalTimeMs += evalElapsed;
   totalEvalCount++;
+  evalLatencyBuffer.push(evalElapsed);
+  if (evalLatencyBuffer.length > EVAL_LATENCY_BUFFER_SIZE) {
+    evalLatencyBuffer.shift();
+  }
 }
 
 startBinance(onTicker);

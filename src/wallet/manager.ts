@@ -10,11 +10,13 @@ import type { Opportunity } from "../arbitrage/types.js";
 import type { TriangularOpportunity } from "../arbitrage/triangular.js";
 import type { Asset, ExchangeName, Pair, Ticker } from "../exchanges/types.js";
 import { pairToAsset } from "../exchanges/types.js";
+import { computeReturnMetrics, percentile } from "./fintech.js";
 import type {
   Balance,
   ExchangeExposure,
   ExecutedTrade,
   ExecutedTriangularTrade,
+  FintechMetrics,
   PortfolioStats,
   RiskMetrics,
   RoutePerformance,
@@ -236,6 +238,8 @@ export class WalletManager {
     tickersByPair: Map<Pair, Map<ExchangeName, Ticker>>,
     counters: ScanCounters,
     avgEvalLatencyMs: number,
+    evalLatencyBuffer: number[] = [],
+    opportunityLifetimes: number[] = [],
   ): PortfolioStats {
     const totalArbitrageProfit = this.trades.reduce(
       (sum, t) => sum + t.netProfit,
@@ -336,6 +340,29 @@ export class WalletManager {
 
     const risk = this.computeRisk(currentBTCPrice, currentETHPrice);
 
+    // Métricas fintech profesionales
+    const returnMetrics = computeReturnMetrics(this.trades);
+    const sortedLatency = evalLatencyBuffer.slice().sort((a, b) => a - b);
+    const sortedLifetimes = opportunityLifetimes.slice().sort((a, b) => a - b);
+    const avgLifetime =
+      opportunityLifetimes.length > 0
+        ? opportunityLifetimes.reduce((s, n) => s + n, 0) /
+          opportunityLifetimes.length
+        : 0;
+
+    const fintech: FintechMetrics = {
+      sharpeRatio: returnMetrics.sharpeRatio,
+      sortinoRatio: returnMetrics.sortinoRatio,
+      profitFactor: returnMetrics.profitFactor,
+      winRate: returnMetrics.winRate,
+      evalLatencyP50: percentile(sortedLatency, 50),
+      evalLatencyP95: percentile(sortedLatency, 95),
+      evalLatencyP99: percentile(sortedLatency, 99),
+      avgOpportunityLifetimeMs: avgLifetime,
+      p95OpportunityLifetimeMs: percentile(sortedLifetimes, 95),
+      totalOpportunityDeaths: opportunityLifetimes.length,
+    };
+
     return {
       initialCapitalUSDT: INITIAL_CAPITAL_USDT,
       initialBTC: INITIAL_BTC,
@@ -359,6 +386,7 @@ export class WalletManager {
       profitByPair: pairMap,
       tradesByPair: pairCount,
       risk,
+      fintech,
     };
   }
 
