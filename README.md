@@ -25,6 +25,32 @@ When you open the dashboard, four numbers tell the entire pitch:
 
 That dramatic gap between Faro's profit and retail's loss on the *same execution path* is the killer insight: arbitrage isn't a game retail can play — and bots that promise otherwise are misleading their users.
 
+## Dashboard tour
+
+![Hero — pill "en vivo · scans/s", tagline, ticker BTC/ETH y stats principales](docs/screenshots/01-hero.png)
+*Hero del dashboard: pill "en vivo" con throughput meter, tagline, ticker BTC/ETH y stats principales (Faro vs retail).*
+
+![Naive Retail Bot vs Faro corriendo en paralelo sobre los mismos datos](docs/screenshots/02-naive-vs-faro.png)
+*Kill shot: el mismo bot con fees retail (0.5%) corre en paralelo. La curva de equity dual muestra la diferencia en tiempo real.*
+
+![Sharpe, Sortino, Profit Factor, Win Rate y latencias p50/p95/p99](docs/screenshots/03-fintech-metrics.png)
+*Métricas fintech profesionales: el idioma estándar de la industria — Sharpe/Sortino/Profit Factor + latencia sub-2ms p99 + alpha decay.*
+
+![TOBI signal con fórmula y calibración en vivo por bucket](docs/screenshots/04-tobi.png)
+*TOBI · Top of Book Imbalance: señal predictiva derivada del orderbook con calibración auditable por bucket en vivo.*
+
+![Kelly Criterion position sizing](docs/screenshots/05-kelly.png)
+*Kelly Criterion: position size matemáticamente óptimo según la edge histórica observada. Fractional Kelly (25%) con cap absoluto del 20% del bankroll.*
+
+![Bayesian slippage learning con posteriors por exchange](docs/screenshots/06-bayesian.png)
+*Bayesian slippage learning: posterior por exchange actualizado en vivo con Normal-Normal conjugate update — converge al slippage real per-exchange.*
+
+![Desglose de costos y decisiones del bot](docs/screenshots/07-costs-decisions.png)
+*Honestidad del modelo (4-stack de costos) + transparencia de decisión (skip reasons incluyendo "Bajo TOBI").*
+
+![Tabla de oportunidades con badges TOBI por fila](docs/screenshots/08-opportunities-table.png)
+*Tabla de oportunidades: cada fila incluye su badge TOBI con probabilidad de supervivencia — todo auditable, nada oculto.*
+
 ## Architecture
 
 ![Faro architecture diagram](docs/architecture.svg)
