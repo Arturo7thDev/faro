@@ -7,6 +7,7 @@ import type { TriangularOpportunity } from "./arbitrage/triangular.js";
 import type { ExchangeName, Pair, Ticker } from "./exchanges/types.js";
 import { PAIRS } from "./exchanges/types.js";
 import type { WalletManager } from "./wallet/manager.js";
+import type { NaiveBot } from "./wallet/naive.js";
 import type { Decision, ExchangeStats, ScanCounters } from "./wallet/types.js";
 
 const STALE_THRESHOLD_MS = 60_000;
@@ -16,6 +17,7 @@ export interface ServerState {
   recentOpportunitiesByPair: Map<Pair, Opportunity[]>;
   recentTriangular: TriangularOpportunity[];
   wallet: WalletManager;
+  naive: NaiveBot;
   counters: ScanCounters;
   decisions: Decision[];
   getExchangeStats: () => ExchangeStats[];
@@ -55,6 +57,15 @@ function snapshot(state: ServerState) {
     decisions: state.decisions.slice(0, 15),
     triangularOpportunities: state.recentTriangular.slice(0, 12),
     triangularTrades: state.wallet.getTriangularTrades(20),
+    naive: {
+      stats: state.naive.getStats(
+        state.wallet.getStats(state.tickersByPair, state.counters, 0)
+          .currentBTCPrice,
+        state.wallet.getStats(state.tickersByPair, state.counters, 0)
+          .currentETHPrice,
+      ),
+      recentTrades: state.naive.getTrades(20),
+    },
     timestamp: now,
   };
 }

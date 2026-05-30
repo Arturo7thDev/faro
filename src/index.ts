@@ -17,6 +17,7 @@ import {
   type TriangularOpportunity,
 } from "./arbitrage/triangular.js";
 import { WalletManager } from "./wallet/manager.js";
+import { NaiveBot } from "./wallet/naive.js";
 import type {
   Decision,
   ExchangeStats,
@@ -35,6 +36,7 @@ const EXECUTION_STALE_THRESHOLD_MS = 60_000;
 const LATENCY_PING_INTERVAL_MS = 30_000;
 
 const wallet = new WalletManager();
+const naive = new NaiveBot();
 const lastExecutionByKey = new Map<string, number>();
 const lastTriangularByExchange = new Map<ExchangeName, number>();
 
@@ -75,6 +77,7 @@ const state: ServerState = {
   recentOpportunitiesByPair,
   recentTriangular,
   wallet,
+  naive,
   counters,
   decisions,
   getExchangeStats: () => buildExchangeStats(),
@@ -225,6 +228,10 @@ function onTicker(t: Ticker): void {
         recent.unshift(opps[0]);
         if (recent.length > MAX_OPP_HISTORY_PER_PAIR) recent.pop();
       }
+
+      // NAIVE BOT: ejecuta sobre la misma data pero con filtro "gross > 0"
+      // y fees retail. Sirve para la comparativa en vivo.
+      naive.evaluate(opps, Date.now());
 
       const best: Opportunity | undefined = opps[0];
       if (best && best.profitable) {
