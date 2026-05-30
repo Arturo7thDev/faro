@@ -40,7 +40,7 @@
 | Backend repo (principal, este) | https://github.com/Arturo7thDev/faro |
 | Frontend repo | https://github.com/Arturo7thDev/practice-app |
 | Backend live (Railway) | https://faro-production-9be0.up.railway.app |
-| Frontend live (Vercel) | https://practice-app-ivory.vercel.app |
+| Frontend live (Vercel) | https://faro-bot-ivory.vercel.app |
 | API health | https://faro-production-9be0.up.railway.app/health |
 | API state snapshot | https://faro-production-9be0.up.railway.app/state |
 | API SSE stream | https://faro-production-9be0.up.railway.app/stream |

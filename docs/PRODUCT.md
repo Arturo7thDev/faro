@@ -95,7 +95,7 @@ Variantes para distintas audiencias:
 
 ### Setup técnico
 
-- Grabá en pantalla completa, browser en https://practice-app-ivory.vercel.app
+- Grabá en pantalla completa, browser en https://faro-bot-ivory.vercel.app
 - Audio claro, hablá despacio
 - No leas el guión — internalizalo, hablalo natural
 

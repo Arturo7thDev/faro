@@ -15,7 +15,7 @@ const STALE_THRESHOLD_MS = 60_000;
 // Lock CORS al dominio público del frontend + localhost para dev.
 // Cualquier otro origin queda fuera del API público.
 const ALLOWED_ORIGINS = [
-  "https://practice-app-ivory.vercel.app",
+  "https://faro-bot-ivory.vercel.app",
   "http://localhost:3000",
   "http://localhost:3001",
 ];
